@@ -9,11 +9,11 @@ are handled by the user — leave changes in the working tree for them to review
 
 ## Project state
 
-This repo is pre-implementation: it currently contains only `go.mod` (module
-`github.com/benipranata/tack`, go 1.26.5), a reference fixture under `openspec/initial-idea/`, and an
-OpenSpec change (`openspec/changes/add-tack-wiring-generator/`) describing the tool to be built.
-There is no `cmd/tack` or `internal/` code yet — implementing it is the work tracked by that change's
-`tasks.md`.
+The `add-tack-wiring-generator` change has been implemented and archived
+(`openspec/changes/archive/2026-08-10-add-tack-wiring-generator/`): `cmd/tack` and `internal/{config,
+scan, resolve, gen}` all exist and the golden-file test passes. `openspec/specs/wiring-generation/` and
+`openspec/specs/cli/` are now the source of truth for behavior. The reference fixture under
+`openspec/initial-idea/` remains as the golden-file target for the generator's own test suite.
 
 ## What tack is
 
@@ -34,26 +34,27 @@ For a given configured interface, tack emits one generated file containing:
 See `openspec/initial-idea/` for a complete worked example: `tack.yaml`, hand-written source
 (`src/a`, `src/b`, `src/c`, `src/d`, `src/provider-01`, `src/provider-02`, `src/iface`), and the
 expected generated output (`src/iface/app_iface_gen.go`). This fixture is the golden-file target for
-tack's own test suite (see tasks.md §7) — it already builds clean and matches the final schema.
+tack's own test suite (`cmd/tack/golden_test.go`) — it builds clean and matches the current schema.
 
 ## Design source of truth
 
 Read in this order when working on the generator:
-- `openspec/changes/add-tack-wiring-generator/proposal.md` — why, and what's in/out of scope
-- `openspec/changes/add-tack-wiring-generator/design.md` — concrete technical decisions (library
-  choices, indexing strategy, error formatting, CLI shape) with rejected alternatives
-- `openspec/changes/add-tack-wiring-generator/specs/wiring-generation/spec.md` and `specs/cli/spec.md`
-  — the behavior contract, as OpenSpec requirement/scenario pairs
-- `openspec/changes/add-tack-wiring-generator/tasks.md` — the implementation checklist, in
-  dependency order (scaffolding → config → scanning → resolution → emission → CLI → golden tests →
-  distribution)
+- `openspec/specs/wiring-generation/spec.md` and `openspec/specs/cli/spec.md` — the current behavior
+  contract, as OpenSpec requirement/scenario pairs; treat these as authoritative over any narrative
+  docs (including this file and README.md) when they disagree
+- `openspec/changes/archive/2026-08-10-add-tack-wiring-generator/proposal.md` and `design.md` — why,
+  and the concrete technical decisions (library choices, indexing strategy, error formatting, CLI
+  shape) with rejected alternatives, kept as historical record of the original implementation
+- `openspec/initial-idea/` — a complete worked example (`tack.yaml`, hand-written `src/*`, and the
+  expected generated output `src/iface/app_iface_gen.go`); this fixture is the golden-file target for
+  tack's own test suite (`cmd/tack/golden_test.go`)
 
 This project uses the OpenSpec workflow (`openspec/config.yaml`, schema `spec-driven`) for planning:
 proposals, design, and delta specs live under `openspec/changes/<change-id>/` until archived into
 `openspec/specs/`. Use the `openspec-*` skills (propose/update/apply/archive/sync/explore) rather than
-editing `openspec/changes/**` by hand.
+editing `openspec/changes/**` or `openspec/specs/**` by hand.
 
-## Planned architecture (per tasks.md §1)
+## Architecture
 
 - `internal/config` — `tack.yaml` parsing/validation (strict decoder, rejects unknown/removed keys
   such as a package- or interface-level `providers:`)
@@ -86,15 +87,19 @@ Key design invariants to preserve when implementing:
 
 ## Commands
 
-No build/lint/test tooling exists yet (no source files outside `openspec/initial-idea`, which is its
-own module with its own `go.mod`). Once `cmd/tack` exists, the standard Go toolchain applies from the
-repo root:
-- `go build ./...`
-- `go test ./...` / `go test ./internal/scan/... -run TestName` for a single package or test
+Standard Go toolchain from the repo root, or the equivalent `Makefile` targets:
+- `go build ./...` / `make build`
+- `go test ./...` / `make test`; `go test ./internal/scan/... -run TestName` for a single package or test
 - `go vet ./...`
+- `make generate-fixture` — regenerates the checked-in golden fixture under `openspec/initial-idea`
+  using the current source of `cmd/tack`
+- `make check-fixture` — the CI-freshness check for this repo's own checked-in golden fixture:
+  regenerates it and fails (`git diff --exit-code`) if that changes anything, catching drift between
+  the generator and the checked-in output
 
-The golden-file test (tasks.md §7) copies `openspec/initial-idea` to a temp dir, runs the generator
-in-process (library call, not `exec.Command`) against its `tack.yaml`, asserts the regenerated
-`app_iface_gen.go` matches the checked-in file byte-for-byte, then `go build ./...` the temp copy.
-The intended CI-freshness check for consumers of tack is `tack && git diff --exit-code` (to be
-scripted per tasks.md §7.3).
+`openspec/initial-idea` is its own Go module (its own `go.mod`) and is not part of `go build ./...`
+from the repo root; it's exercised via `cmd/tack/golden_test.go`, which copies it to a temp dir, runs
+the generator in-process (library call, not `exec.Command`) against its `tack.yaml`, asserts the
+regenerated `app_iface_gen.go` matches the checked-in file byte-for-byte, then `go build ./...` the
+temp copy. The intended freshness check for consumers of tack (not this repo) is `tack && git diff
+--exit-code`.
