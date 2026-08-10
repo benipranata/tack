@@ -70,7 +70,7 @@
 
 ## 7. Golden-file & integration testing
 
-- [ ] 7.1 Add a Go test that copies `specs/idea/case-01` to a temp directory, runs the generator
+- [ ] 7.1 Add a Go test that copies `openspec/initial-idea` to a temp directory, runs the generator
       in-process against its `tack.yaml`, and asserts the regenerated `app_iface_gen.go` matches the
       checked-in file byte-for-byte.
 - [ ] 7.2 In the same test, `go build ./...` the temp copy to confirm the regenerated output actually

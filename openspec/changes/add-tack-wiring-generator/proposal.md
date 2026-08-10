@@ -5,9 +5,8 @@ drifts from its providers, or bought at the cost of a full DI framework (google/
 whose graph solver — topological sort, cycle detection, provider sets — is overkill when providers
 never depend on each other, only on `context.Context`. tack generates that wiring code straight
 from a small `tack.yaml` and a `Provide*` function per dependency, with the graph engine designed
-away entirely. The design has been through three grill sessions (`specs/idea/grill-tack-wiring-tool.md`,
-`specs/grill-tack-provider-scoping.md`, `specs/grill-tack-wiring-reconciliation.md`) and a working
-reference example (`specs/idea/case-01`); this change turns that settled design into the tool itself.
+away entirely. The design has been through several rounds of reconciliation and a working
+reference example (`openspec/initial-idea`); this change turns that settled design into the tool itself.
 
 ## What Changes
 
@@ -45,9 +44,8 @@ reference example (`specs/idea/case-01`); this change turns that settled design 
 - New Go source under the module root: config loading, `go/packages`/`go/types`-based scanning,
   provider indexing, code emission, and a `cmd/tack` entry point. The repository currently contains
   only `go.mod` — no existing runtime code is affected.
-- `specs/idea/*` (initial idea, refined grill logs, `case-01` reference fixture) remain as the design
-  record this change is derived from; `openspec/specs/**` becomes the source of truth for behavior
-  going forward.
+- `openspec/initial-idea/` (the `case-01` reference fixture) remains as the design record this change
+  is derived from; `openspec/specs/**` becomes the source of truth for behavior going forward.
 - Packaging/release impact (GoReleaser config, `homebrew-tap` formula) is implementation detail,
   covered in `design.md` rather than as its own spec capability — it doesn't change observable
   system behavior.

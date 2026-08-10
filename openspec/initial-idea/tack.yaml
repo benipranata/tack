@@ -1,0 +1,8 @@
+providers:
+  - src/provider-01
+  - src/provider-02
+packages:
+  src/iface:
+    Iface:
+      name: App
+      output: app_iface_gen.go

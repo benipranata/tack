@@ -1,12 +1,10 @@
 ## Context
 
-The repository is currently just `go.mod` (`github.com/benipranata/tack`, go 1.26.5) plus a design
-record under `specs/`: `specs/idea/initial-idea.md` (original brief), `specs/idea/grill-tack-wiring-tool.md`
-(main design, now reconciled), `specs/grill-tack-provider-scoping.md` and
-`specs/grill-tack-wiring-reconciliation.md` (follow-up decisions), and a hand-written reference
-fixture at `specs/idea/case-01/` that already builds clean and matches the final schema. See
-`proposal.md` for motivation. This design covers how to turn that settled behavior contract (see
-`specs/wiring-generation/spec.md` and `specs/cli/spec.md` in this change) into the actual tool.
+The repository is currently just `go.mod` (`github.com/benipranata/tack`, go 1.26.5) plus a
+hand-written reference fixture at `openspec/initial-idea/` that already builds clean and matches the
+final schema. See `proposal.md` for motivation. This design covers how to turn that settled behavior
+contract (see `specs/wiring-generation/spec.md` and `specs/cli/spec.md` in this change) into the
+actual tool.
 
 ## Goals / Non-Goals
 
@@ -57,7 +55,7 @@ fixture at `specs/idea/case-01/` that already builds clean and matches the final
   justify the dependency, and it keeps the "smaller than wire" footprint the design commits to.
 - **Config discovery**: walk up from `os.Getwd()` looking for `tack.yaml` at each level, matching the
   spec; `--config` short-circuits discovery entirely.
-- **Golden-file testing of tack itself**: a Go test copies `specs/idea/case-01` to a temp directory,
+- **Golden-file testing of tack itself**: a Go test copies `openspec/initial-idea` to a temp directory,
   runs the generator against it in-process (as a library call, not `exec.Command`, so failures surface
   as normal Go test failures with real stack traces), and asserts the regenerated
   `app_iface_gen.go` byte-for-byte matches the checked-in one, then `go build ./...` the temp copy.
