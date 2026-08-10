@@ -1,0 +1,51 @@
+version: 2
+
+project_name: tack
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tack
+    main: ./cmd/tack
+    binary: tack
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: tack
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+homebrew_casks:
+  - name: tack
+    binaries:
+      - tack
+    repository:
+      owner: benipranata
+      name: homebrew-tap
+    directory: Casks
+    homepage: "https://github.com/benipranata/tack"
+    description: "Generates per-request dependency-wiring code from a tack.yaml config, without a dependency-graph solver."
