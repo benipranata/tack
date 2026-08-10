@@ -1,6 +1,6 @@
 # tack
 
-**Simple dependency wiring. No bloat, no bullshit, no blunder, no extra features.**
+**Dead simple dependency wiring.**
 
 tack generates the dependency-wiring code you'd otherwise hand-write — a constructor, a struct, and
 a test double — straight from a `tack.yaml` config and the `Provide*` functions you already have.
@@ -47,55 +47,95 @@ That's it — two commands, and your wiring code is generated.
 
 ## Example
 
-A one-provider setup: a `Deps` interface with a single `Logger()` method, and a `ProvideLogger`
-function to satisfy it.
+One provider package with two providers, wiring a `Service` interface:
 
 ```yaml
 # tack.yaml
 providers:
-  - internal/logger
+  - internal/providers
 packages:
-  internal/app:
-    Deps:
-      name: App
+  internal/service:
+    Service:
+      name: Prod
 ```
 
 ```go
-// internal/app/deps.go
-type Deps interface {
+// internal/service/service.go
+type Service interface {
+    Redis() *redis.Client
     Logger() *log.Logger
 }
 ```
 
 ```go
-// internal/logger/logger.go
+// internal/providers/providers.go
+func ProvideRedisClient(ctx context.Context) (*redis.Client, func(), error) {
+    client := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+    return client, func() { client.Close() }, nil
+}
+
 func ProvideLogger(ctx context.Context) (*log.Logger, func(), error) {
     return log.New(os.Stdout, "", log.LstdFlags), nil, nil
 }
 ```
 
-Running `tack` generates `internal/app/app_deps_gen.go`:
+Running `tack` generates `internal/service/prod_service_gen.go`:
 
 ```go
-func NewAppDeps(ctx context.Context) (Deps, func(), error) {
-    logger, loggerCleanup, err := logger.ProvideLogger(ctx)
+func NewProdService(ctx context.Context) (Service, func(), error) {
+    var cleanups []func()
+    cleanup := func() {
+        for i := len(cleanups) - 1; i >= 0; i-- {
+            cleanups[i]()
+        }
+    }
+
+    redisClient, redisClientCleanup, err := providers.ProvideRedisClient(ctx)
     if err != nil {
+        cleanup()
+        return nil, nil, fmt.Errorf("ProvideRedisClient: %w", err)
+    }
+    if redisClientCleanup != nil {
+        cleanups = append(cleanups, redisClientCleanup)
+    }
+
+    logger, loggerCleanup, err := providers.ProvideLogger(ctx)
+    if err != nil {
+        cleanup()
         return nil, nil, fmt.Errorf("ProvideLogger: %w", err)
     }
-    return &appDeps{logger: logger}, func() {
-        if loggerCleanup != nil {
-            loggerCleanup()
-        }
-    }, nil
+    if loggerCleanup != nil {
+        cleanups = append(cleanups, loggerCleanup)
+    }
+
+    return &prodService{redis: redisClient, logger: logger}, cleanup, nil
 }
 
-type appDeps struct{ logger *log.Logger }
-
-func (d *appDeps) Logger() *log.Logger { return d.logger }
-
-func NewAppTestDeps(t testing.TB, s ...) Deps {
-    // t.Fatalf's on any unset field — drop in a fake logger for tests in one call
+type prodService struct {
+    redis  *redis.Client
+    logger *log.Logger
 }
+
+func (s *prodService) Redis() *redis.Client { return s.redis }
+func (s *prodService) Logger() *log.Logger  { return s.logger }
+
+func NewProdTestService(t testing.TB, s ...) Service {
+    // t.Fatalf's on any unset field — drop in fakes for tests in one call
+}
+```
+
+Using it is just a constructor call and a deferred cleanup:
+
+```go
+svc, closeFn, err := NewProdService(ctx)
+if err != nil {
+    // handle error
+}
+defer closeFn()
+
+// use svc
+svc.Redis()
+svc.Logger()
 ```
 
 For a complete, buildable worked example — config, hand-written providers, and the exact generated
@@ -117,12 +157,12 @@ is exact on the type, not on naming convention, so there's never any ambiguity a
 
 ### CLI
 
-| Command | What it does |
-|---|---|
-| `tack` | Generate (or regenerate) wiring for every interface configured in `tack.yaml`. |
-| `tack generate` | Alias for the bare `tack` command above. |
-| `tack init` | Write a starter `tack.yaml` into the current directory. Leaves an existing one untouched. |
-| `tack --config <path>` | Use `<path>` directly instead of discovering `tack.yaml` automatically. |
+| Command                | What it does                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `tack`                 | Generate (or regenerate) wiring for every interface configured in `tack.yaml`.            |
+| `tack generate`        | Alias for the bare `tack` command above.                                                  |
+| `tack init`            | Write a starter `tack.yaml` into the current directory. Leaves an existing one untouched. |
+| `tack --config <path>` | Use `<path>` directly instead of discovering `tack.yaml` automatically.                   |
 
 Without `--config`, tack walks up from the current directory looking for `tack.yaml`, so you can run
 it from any subdirectory of your project.
@@ -130,15 +170,15 @@ it from any subdirectory of your project.
 ### Config reference
 
 ```yaml
-providers:            # package directories forming the global provider scope
+providers: # package directories forming the global provider scope
   - src/provider-01
 
-packages:              # interfaces to generate wiring for
-  src/iface:            # the interface's own package directory
-    Iface:               # the interface name
-      name: App            # constructor/struct name prefix -> NewAppIface
-      output: app_iface_gen.go  # optional; defaults to lower(name)_lower(interface)_gen.go
-      localScan: true      # optional; set to false to resolve only from the global scope
+packages: # interfaces to generate wiring for
+  src/iface: # the interface's own package directory
+    Iface: # the interface name
+      name: App # constructor/struct name prefix -> NewAppIface
+      output: app_iface_gen.go # optional; defaults to lower(name)_lower(interface)_gen.go
+      localScan: true # optional; set to false to resolve only from the global scope
 ```
 
 ## Development
