@@ -86,8 +86,9 @@
       same `benipranata/homebrew-tap` repo and still resolves via `brew install benipranata/tap/tack`.)
 - [x] 8.2 Dry-run `goreleaser release --snapshot --clean` locally and confirm the built binary runs
       `tack generate` correctly against `case-01`.
-- [ ] 8.3 Tag and publish the first release (`v0.1.0`); confirm both
-      `go install github.com/benipranata/tack@latest` and `brew install benipranata/tap/tack` work.
-      **Not done**: requires pushing a git tag/GitHub release and a separate `homebrew-tap` repo to
-      exist — outside what this session does unprompted (no commits/pushes per CLAUDE.md). Needs the
-      user to run this manually once ready to publish.
+- [x] 8.3 Tag and publish the first release (`v0.1.0`); confirm both
+      `go install github.com/benipranata/tack/cmd/tack@latest` and
+      `brew install --cask benipranata/tap/tack` work. Done by the user (tag push, GitHub release,
+      `benipranata/homebrew-tap` repo, `goreleaser release --clean`). Note: the install command has a
+      `/cmd/tack` suffix not present in `proposal.md`'s wording, since `package main` lives at
+      `cmd/tack`, not the module root; `proposal.md` still needs that correction.
