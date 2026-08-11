@@ -9,8 +9,8 @@ providers, run one command, and get a plain Go file you can read top to bottom.
 
 ## Why tack
 
-- **Built for simplicity.** One config file, one command, one generated file per interface. That's
-  the whole surface area.
+- **Built for simplicity.** One config file, one command, one generated file per output variant.
+  That's the whole surface area.
 - **No graph solver.** Providers only ever depend on `context.Context` — never on each other — so
   there's no dependency graph to build, sort, or debug. Just a flat, direct lookup.
 - **Plain generated Go.** The output is ordinary, readable Go: a constructor, a struct, and accessor
