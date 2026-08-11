@@ -53,10 +53,11 @@ One provider package with two providers, wiring a `Service` interface:
 # tack.yaml
 providers:
   - internal/providers
-packages:
-  internal/service:
-    Service:
-      name: Prod
+targets:
+  - package: internal/service
+    interface: Service
+    output:
+      - name: Prod
 ```
 
 ```go
@@ -146,12 +147,19 @@ output — see [`openspec/initial-idea/`](openspec/initial-idea/).
 Every method on a configured interface names a dependency by its return type. tack resolves exactly
 one provider per type from two scopes, in this order:
 
-1. **Local** — the interface's own package directory, scanned automatically.
+1. **Local** — the output variant's own effective directory (its `output.package`, or the target's
+   `package` when unset), scanned automatically. Created on demand if it doesn't exist yet.
 2. **Global** — every package directory listed under top-level `providers:`, used for anything the
    local scope doesn't cover.
 
 A provider is any function with the signature `func(context.Context) (T, func(), error)` — matching
 is exact on the type, not on naming convention, so there's never any ambiguity about what counts.
+
+A single interface can have more than one named output variant, each writing to its own directory and
+scanning its own local scope — useful for generating multiple implementations of the same interface
+(e.g. `ProdState`/`StagingState` for a `State` interface), each pulling from different providers. See
+[`openspec/initial-idea/tack.yaml`](openspec/initial-idea/tack.yaml) for a worked example
+(`src/state`'s `State` interface, generated as both `src/state/prod` and `src/state/staging`).
 
 ## Manual
 
@@ -173,12 +181,14 @@ it from any subdirectory of your project.
 providers: # package directories forming the global provider scope
   - src/provider-01
 
-packages: # interfaces to generate wiring for
-  src/iface: # the interface's own package directory
-    Iface: # the interface name
-      name: App # constructor/struct name prefix -> NewAppIface
-      output: app_iface_gen.go # optional; defaults to lower(name)_lower(interface)_gen.go
-      localScan: true # optional; set to false to resolve only from the global scope
+targets: # interfaces to generate wiring for
+  - package: src/iface # the interface's own package directory
+    interface: Iface # the interface name
+    output: # one or more named implementations to generate
+      - name: App # constructor/struct name prefix -> NewAppIface
+        # package: src/iface/app  # optional; defaults to the target's own package; created if missing
+        # file: app_iface_gen.go  # optional; defaults to lower(name)_lower(interface)_gen.go
+        # localScan: true         # optional; set to false to resolve only from the global scope
 ```
 
 A JSON Schema for `tack.yaml` is published at

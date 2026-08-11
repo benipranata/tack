@@ -8,39 +8,64 @@
   "properties": {
     "providers": {
       "type": "array",
-      "description": "Package directories (relative to the go.mod that owns this config) scanned for the global provider scope, shared by every configured interface unless shadowed by a local provider of the same type.",
+      "description": "Package directories (relative to the go.mod that owns this config) scanned for the global provider scope, shared by every configured output variant unless shadowed by a local provider of the same type.",
       "items": {
         "type": "string"
       }
     },
-    "packages": {
-      "type": "object",
-      "description": "Interfaces to generate wiring for, keyed by their own package directory.",
-      "additionalProperties": {
+    "targets": {
+      "type": "array",
+      "description": "Interfaces to generate wiring for.",
+      "items": {
         "type": "object",
-        "description": "Interfaces to generate wiring for in this package directory, keyed by Go interface name. This directory is always scanned as a local provider scope too, unless localScan is set to false.",
-        "additionalProperties": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "name": {
-              "type": "string",
-              "description": "Constructor/struct name prefix, e.g. name: App -> NewAppIface."
-            },
-            "output": {
-              "type": "string",
-              "description": "Generated file name. Defaults to lower(name)_lower(interface)_gen.go."
-            },
-            "localScan": {
-              "type": "boolean",
-              "description": "Set to false to resolve this interface only from the global provider scope, skipping its own package directory as a local scope.",
-              "default": true
-            }
+        "description": "One interface, declared in package, and one or more named output variants to generate for it.",
+        "additionalProperties": false,
+        "properties": {
+          "package": {
+            "type": "string",
+            "description": "Module-relative directory where the interface is declared."
           },
-          "required": [
-            "name"
-          ]
-        }
+          "interface": {
+            "type": "string",
+            "description": "Go interface name declared in package."
+          },
+          "output": {
+            "type": "array",
+            "minItems": 1,
+            "description": "One or more named implementations to generate for this interface.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Constructor/struct name prefix, e.g. name: App -> NewAppIface."
+                },
+                "package": {
+                  "type": "string",
+                  "description": "Module-relative directory to write the generated file into and scan as this variant's local provider scope. Defaults to the target's package. Created automatically if it doesn't yet exist."
+                },
+                "file": {
+                  "type": "string",
+                  "description": "Generated file name. Defaults to lower(name)_lower(interface)_gen.go."
+                },
+                "localScan": {
+                  "type": "boolean",
+                  "description": "Set to false to resolve this variant only from the global provider scope, skipping its own effective directory as a local scope.",
+                  "default": true
+                }
+              },
+              "required": [
+                "name"
+              ]
+            }
+          }
+        },
+        "required": [
+          "package",
+          "interface",
+          "output"
+        ]
       }
     }
   }

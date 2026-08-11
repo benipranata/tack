@@ -18,18 +18,23 @@ const starterConfig = `# yaml-language-server: $schema=https://raw.githubusercon
 #
 # providers: package directories (relative to the go.mod that owns this
 # config) scanned for the global provider scope, shared by every configured
-# interface unless shadowed by a local provider of the same type.
+# output variant unless shadowed by a local provider of the same type.
 providers: []
 
-# packages: interfaces to generate wiring for, keyed by their own package
-# directory and interface name. Each interface's own directory is always
-# scanned as a local provider scope too, unless localScan is set to false.
-packages: {}
-#   src/example:
-#     Example:
-#       name: App
-#       # output: app_example_gen.go   # default: lower(name)_lower(interface)_gen.go
-#       # localScan: true              # set to false to resolve only from the global scope
+# targets: interfaces to generate wiring for. Each target names the package
+# directory an interface is declared in, plus one or more named output
+# variants (e.g. multiple implementations of the same interface). An output
+# variant's own directory is scanned as a local provider scope too, unless
+# localScan is set to false; it defaults to the target's own package
+# directory when not set, and is created automatically if it doesn't exist.
+targets: []
+#   - package: src/example
+#     interface: Example
+#     output:
+#       - name: App
+#         # package: src/example/app   # default: same as the target's package
+#         # file: app_example_gen.go   # default: lower(name)_lower(interface)_gen.go
+#         # localScan: true            # set to false to resolve only from the global scope
 `
 
 func main() {
@@ -75,6 +80,9 @@ func runGenerate(configPath string) error {
 	if err := gen.DeleteStaleOutputs(cfg); err != nil {
 		return err
 	}
+	if err := gen.ScaffoldOutputDirs(cfg); err != nil {
+		return err
+	}
 
 	ifaces, err := resolve.ResolveAll(cfg)
 	if err != nil {
@@ -86,7 +94,7 @@ func runGenerate(configPath string) error {
 		if err != nil {
 			return err
 		}
-		outPath := filepath.Join(cfg.ModuleRoot, iface.PkgDir, gen.OutputFilename(iface.Config, iface.IfaceName))
+		outPath := filepath.Join(cfg.ModuleRoot, iface.EffectiveDir, gen.OutputFilename(iface.Output, iface.IfaceName))
 		if err := os.WriteFile(outPath, out, 0o644); err != nil {
 			return fmt.Errorf("tack: write %s: %w", outPath, err)
 		}

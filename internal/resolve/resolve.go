@@ -1,7 +1,7 @@
 // Package resolve ties internal/config and internal/scan together: for each
-// configured interface, it resolves every accessor method's dependency type
-// to exactly one provider, validating interface shape and type nilability
-// along the way.
+// configured output variant, it resolves every accessor method's dependency
+// type to exactly one provider, validating interface shape and type
+// nilability along the way.
 package resolve
 
 import (
@@ -9,7 +9,8 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"sort"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/benipranata/tack/internal/config"
@@ -24,30 +25,42 @@ type Method struct {
 	Provider scan.Provider
 }
 
-// Interface is a fully resolved, validated configured interface, ready for
-// code emission.
+// Interface is one fully resolved, validated output variant of a configured
+// interface, ready for code emission.
 type Interface struct {
-	PkgDir    string // module-relative directory, e.g. "src/iface"
+	PkgDir    string // target's module-relative package directory, e.g. "src/state"
 	Pkg       *packages.Package
 	IfaceName string
-	Config    config.InterfaceConfig
-	Methods   []Method
+	Output    config.OutputConfig
+
+	// EffectiveDir is Output.EffectiveDir(target): the module-relative
+	// directory this variant writes into and scans as its local scope.
+	EffectiveDir string
+	// OutputPkg is the loaded package at EffectiveDir, or nil when that
+	// directory has no .go files yet (a freshly scaffolded or otherwise
+	// empty output package) — in which case this variant's local scope is
+	// empty and its package name is derived from EffectiveDir's basename.
+	OutputPkg *packages.Package
+
+	Methods []Method
 }
 
-// ResolveAll loads and resolves every interface configured in cfg: the
-// global provider scope is built once from cfg.Providers, and a local scope
-// is built once per target package directory, then shared across every
-// interface configured in that directory.
-func ResolveAll(cfg *config.Config) ([]*Interface, error) {
-	pkgDirs := sortedKeys(cfg.Packages)
+type methodShape struct {
+	Name string
+	Type types.Type
+}
 
-	// Load every directory involved (global providers + every target
-	// package) in one shared session, so types.Identical can match a
-	// dependency type shared across scopes.
-	allDirs := make([]string, 0, len(cfg.Providers)+len(pkgDirs))
-	allDirs = append(allDirs, cfg.Providers...)
-	allDirs = append(allDirs, pkgDirs...)
-	loaded, err := scan.LoadDirs(cfg.ModuleRoot, allDirs)
+// ResolveAll loads and resolves every output variant configured in cfg: the
+// global provider scope is built once from cfg.Providers, each target's
+// interface is parsed and validated once, and each output variant gets its
+// own local scope built from its effective directory (cached by directory,
+// so variants sharing one aren't rescanned).
+func ResolveAll(cfg *config.Config) ([]*Interface, error) {
+	loadDirs, err := collectLoadDirs(cfg)
+	if err != nil {
+		return nil, err
+	}
+	loaded, err := scan.LoadDirs(cfg.ModuleRoot, loadDirs)
 	if err != nil {
 		return nil, err
 	}
@@ -61,17 +74,34 @@ func ResolveAll(cfg *config.Config) ([]*Interface, error) {
 		return nil, err
 	}
 
+	localIndexes := map[string]*scan.Index{}
+
 	var results []*Interface
-	for _, pkgDir := range pkgDirs {
-		targetPkg := loaded[pkgDir]
-		local := scan.NewIndex()
-		if err := local.Add(targetPkg); err != nil {
+	for _, t := range cfg.Targets {
+		targetPkg, ok := loaded[t.Package]
+		if !ok {
+			return nil, fmt.Errorf("tack: target %s: package could not be loaded", t.Package)
+		}
+
+		shapes, err := parseAndValidateInterface(targetPkg, t.Package, t.Interface)
+		if err != nil {
 			return nil, err
 		}
 
-		for _, ifaceName := range sortedKeys(cfg.Packages[pkgDir]) {
-			icfg := cfg.Packages[pkgDir][ifaceName]
-			iface, err := resolveInterface(targetPkg, pkgDir, ifaceName, icfg, local, global)
+		for _, o := range t.Output {
+			dir := o.EffectiveDir(t)
+			local, ok := localIndexes[dir]
+			if !ok {
+				local = scan.NewIndex()
+				if pkg, loadedOK := loaded[dir]; loadedOK {
+					if err := local.Add(pkg); err != nil {
+						return nil, err
+					}
+				}
+				localIndexes[dir] = local
+			}
+
+			iface, err := resolveVariant(targetPkg, t, o, dir, loaded[dir], shapes, local, global)
 			if err != nil {
 				return nil, err
 			}
@@ -81,7 +111,68 @@ func ResolveAll(cfg *config.Config) ([]*Interface, error) {
 	return results, nil
 }
 
-func resolveInterface(pkg *packages.Package, pkgDir, ifaceName string, icfg config.InterfaceConfig, local, global *scan.Index) (*Interface, error) {
+// collectLoadDirs returns the deduplicated set of module-relative
+// directories that need packages.Load: every global provider directory,
+// every target's own package directory, and every output variant's
+// effective directory that actually has .go files (a directory with none —
+// not yet scaffolded, or scaffolded but still empty — contributes nothing
+// and is never loaded).
+func collectLoadDirs(cfg *config.Config) ([]string, error) {
+	seen := map[string]bool{}
+	var dirs []string
+	add := func(d string) {
+		if !seen[d] {
+			seen[d] = true
+			dirs = append(dirs, d)
+		}
+	}
+
+	for _, p := range cfg.Providers {
+		add(p)
+	}
+	for _, t := range cfg.Targets {
+		add(t.Package)
+	}
+	for _, t := range cfg.Targets {
+		for _, o := range t.Output {
+			dir := o.EffectiveDir(t)
+			if seen[dir] {
+				continue
+			}
+			has, err := dirHasGoFiles(cfg.ModuleRoot, dir)
+			if err != nil {
+				return nil, err
+			}
+			if has {
+				add(dir)
+			}
+		}
+	}
+	return dirs, nil
+}
+
+func dirHasGoFiles(moduleRoot, dir string) (bool, error) {
+	entries, err := os.ReadDir(filepath.Join(moduleRoot, dir))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("tack: read directory %s: %w", dir, err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".go") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// parseAndValidateInterface locates ifaceName in pkg and validates every
+// accessor method's shape (zero parameters, exactly one nilable result),
+// returning the methods in source declaration order. This is shared across
+// every output variant of a target, since method shape doesn't depend on
+// where a variant writes its output.
+func parseAndValidateInterface(pkg *packages.Package, pkgDir, ifaceName string) ([]methodShape, error) {
 	methodOrder, ifaceType, err := findInterface(pkg, ifaceName)
 	if err != nil {
 		return nil, err
@@ -93,7 +184,7 @@ func resolveInterface(pkg *packages.Package, pkgDir, ifaceName string, icfg conf
 		explicit[f.Name()] = f
 	}
 
-	methods := make([]Method, 0, len(methodOrder))
+	shapes := make([]methodShape, 0, len(methodOrder))
 	for _, name := range methodOrder {
 		fn, ok := explicit[name]
 		if !ok {
@@ -107,19 +198,34 @@ func resolveInterface(pkg *packages.Package, pkgDir, ifaceName string, icfg conf
 		if !isNilable(resultType) {
 			return nil, fmt.Errorf("tack: interface %s.%s: method %s returns non-nilable type %s; the generated test helper can only zero-check pointer, interface, map, slice, channel, or func types", pkgDir, ifaceName, name, types.TypeString(resultType, nil))
 		}
+		shapes = append(shapes, methodShape{Name: name, Type: resultType})
+	}
+	return shapes, nil
+}
 
-		provider, err := resolveType(pkgDir, ifaceName, name, resultType, icfg, local, global)
+func resolveVariant(targetPkg *packages.Package, t config.TargetConfig, o config.OutputConfig, effectiveDir string, outputPkg *packages.Package, shapes []methodShape, local, global *scan.Index) (*Interface, error) {
+	methods := make([]Method, 0, len(shapes))
+	for _, s := range shapes {
+		provider, err := resolveType(t.Package, t.Interface, o.Name, s.Name, s.Type, o.LocalScan, local, global)
 		if err != nil {
 			return nil, err
 		}
-		methods = append(methods, Method{Name: name, Type: resultType, Provider: provider})
+		methods = append(methods, Method{Name: s.Name, Type: s.Type, Provider: provider})
 	}
 
-	return &Interface{PkgDir: pkgDir, Pkg: pkg, IfaceName: ifaceName, Config: icfg, Methods: methods}, nil
+	return &Interface{
+		PkgDir:       t.Package,
+		Pkg:          targetPkg,
+		IfaceName:    t.Interface,
+		Output:       o,
+		EffectiveDir: effectiveDir,
+		OutputPkg:    outputPkg,
+		Methods:      methods,
+	}, nil
 }
 
-func resolveType(pkgDir, ifaceName, methodName string, t types.Type, icfg config.InterfaceConfig, local, global *scan.Index) (scan.Provider, error) {
-	if icfg.LocalScan {
+func resolveType(pkgDir, ifaceName, variantName, methodName string, t types.Type, localScan bool, local, global *scan.Index) (scan.Provider, error) {
+	if localScan {
 		if p, ok := local.Lookup(t); ok {
 			return p, nil
 		}
@@ -129,12 +235,12 @@ func resolveType(pkgDir, ifaceName, methodName string, t types.Type, icfg config
 	}
 
 	var nearMisses []scan.NearMiss
-	if icfg.LocalScan {
+	if localScan {
 		nearMisses = append(nearMisses, local.NearMisses(t)...)
 	}
 	nearMisses = append(nearMisses, global.NearMisses(t)...)
 
-	msg := fmt.Sprintf("tack: interface %s.%s: method %s: no provider found for %s", pkgDir, ifaceName, methodName, types.TypeString(t, nil))
+	msg := fmt.Sprintf("tack: interface %s.%s output %q: method %s: no provider found for %s", pkgDir, ifaceName, variantName, methodName, types.TypeString(t, nil))
 	if len(nearMisses) > 0 {
 		names := make([]string, len(nearMisses))
 		for i, nm := range nearMisses {
@@ -200,13 +306,4 @@ func isNilable(t types.Type) bool {
 	default:
 		return false
 	}
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/types"
+	"path/filepath"
 	"text/template"
 
 	"github.com/benipranata/tack/internal/resolve"
@@ -23,7 +24,7 @@ type methodData struct {
 type fileData struct {
 	PackageName     string
 	ConstructorName string
-	IfaceName       string
+	IfaceRef        string // the interface's type reference as used in this file: bare (same package) or qualified (e.g. state.State, cross-package)
 	StructName      string
 	TestStructName  string
 	TestCtorName    string
@@ -42,7 +43,7 @@ import (
 {{range .GroupB}}	{{if .Alias}}{{.Alias}} {{end}}{{printf "%q" .Path}}
 {{end}})
 
-func {{.ConstructorName}}(ctx context.Context) ({{.IfaceName}}, func(), error) {
+func {{.ConstructorName}}(ctx context.Context) ({{.IfaceRef}}, func(), error) {
 	var cleanups []func()
 	cleanup := func() {
 		for i := len(cleanups) - 1; i >= 0; i-- {
@@ -65,13 +66,13 @@ func {{.ConstructorName}}(ctx context.Context) ({{.IfaceName}}, func(), error) {
 {{end}}	}, cleanup, nil
 }
 
-var _ {{.IfaceName}} = (*{{.StructName}})(nil)
+var _ {{.IfaceRef}} = (*{{.StructName}})(nil)
 
 type {{.StructName}} struct {
 {{range .Methods}}	{{.FieldName}} {{.TypeStr}}
 {{end}}}
 {{range .Methods}}
-// {{.Name}} implements [{{$.IfaceName}}].
+// {{.Name}} implements [{{$.IfaceRef}}].
 func (i *{{$.StructName}}) {{.Name}}() {{.TypeStr}} {
 	return i.{{.FieldName}}
 }
@@ -81,7 +82,7 @@ type {{.TestStructName}} struct {
 {{range .Methods}}	{{.Name}} {{.TypeStr}}
 {{end}}}
 
-func {{.TestCtorName}}(t testing.TB, s {{.TestStructName}}) {{.IfaceName}} {
+func {{.TestCtorName}}(t testing.TB, s {{.TestStructName}}) {{.IfaceRef}} {
 	t.Helper()
 {{range .Methods}}	if s.{{.Name}} == nil {
 		t.Fatalf("%s.%s not set", {{printf "%q" $.TestStructName}}, {{printf "%q" .Name}})
@@ -93,9 +94,21 @@ func {{.TestCtorName}}(t testing.TB, s {{.TestStructName}}) {{.IfaceName}} {
 `))
 
 // Generate renders the gofmt-formatted generated wiring file source for a
-// fully resolved interface.
+// fully resolved output variant.
 func Generate(iface *resolve.Interface) ([]byte, error) {
-	targetPkgPath := iface.Pkg.PkgPath
+	// The generated file's own package is the output variant's effective
+	// directory, not necessarily the interface's own declaring package.
+	// When that directory has no .go files yet (a freshly scaffolded or
+	// otherwise empty output package), there is no loaded package to read a
+	// path/name from; targetPkgPath stays "" (never a real import path, so
+	// it can never wrongly suppress an import) and the package clause is
+	// derived from the directory's basename instead.
+	targetPkgPath := ""
+	packageName := filepath.Base(iface.EffectiveDir)
+	if iface.OutputPkg != nil {
+		targetPkgPath = iface.OutputPkg.PkgPath
+		packageName = iface.OutputPkg.Types.Name()
+	}
 
 	// Import identifiers (type packages, provider packages, context, fmt,
 	// testing) are one collision domain: every import in the file needs a
@@ -104,6 +117,16 @@ func Generate(iface *resolve.Interface) ([]byte, error) {
 	imps := newImportSet(targetPkgPath, importAlloc)
 	imps.add("context", "context")
 	imps.add("fmt", "fmt")
+
+	// When the output variant writes into a different directory than the
+	// one the interface is declared in, the interface itself becomes just
+	// another import, qualified like any cross-package reference.
+	ifaceRef := iface.IfaceName
+	ifaceIdent := ""
+	if iface.EffectiveDir != iface.PkgDir {
+		ifaceIdent = imps.add(iface.Pkg.PkgPath, iface.Pkg.Types.Name())
+		ifaceRef = ifaceIdent + "." + iface.IfaceName
+	}
 
 	type methodPrep struct {
 		Name             string
@@ -151,6 +174,9 @@ func Generate(iface *resolve.Interface) ([]byte, error) {
 	localAlloc := NewAllocator()
 	localAlloc.Reserve("context")
 	localAlloc.Reserve("fmt")
+	if ifaceIdent != "" {
+		localAlloc.Reserve(ifaceIdent)
+	}
 	for _, mp := range prepared {
 		if mp.ConstructorRef != "" {
 			localAlloc.Reserve(mp.ConstructorRef)
@@ -173,14 +199,14 @@ func Generate(iface *resolve.Interface) ([]byte, error) {
 		})
 	}
 
-	structName := lowerFirst(iface.Config.Name) + iface.IfaceName
+	structName := lowerFirst(iface.Output.Name) + iface.IfaceName
 	data := fileData{
-		PackageName:     iface.Pkg.Types.Name(),
-		ConstructorName: "New" + iface.Config.Name + iface.IfaceName,
-		IfaceName:       iface.IfaceName,
+		PackageName:     packageName,
+		ConstructorName: "New" + iface.Output.Name + iface.IfaceName,
+		IfaceRef:        ifaceRef,
 		StructName:      structName,
-		TestStructName:  iface.Config.Name + "Test" + iface.IfaceName,
-		TestCtorName:    "New" + iface.Config.Name + "Test" + iface.IfaceName,
+		TestStructName:  iface.Output.Name + "Test" + iface.IfaceName,
+		TestCtorName:    "New" + iface.Output.Name + "Test" + iface.IfaceName,
 		GroupA:          imps.entries(),
 		GroupB:          []importEntry{testingEntry},
 		Methods:         methods,
@@ -191,7 +217,7 @@ func Generate(iface *resolve.Interface) ([]byte, error) {
 		return nil, fmt.Errorf("tack: render template: %w", err)
 	}
 
-	filename := OutputFilename(iface.Config, iface.IfaceName)
+	filename := OutputFilename(iface.Output, iface.IfaceName)
 	formatted, err := imports.Process(filename, buf.Bytes(), &imports.Options{
 		Comments:   true,
 		TabIndent:  true,

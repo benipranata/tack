@@ -5,20 +5,58 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-// InterfaceConfig is one entry under packages.<dir>.<InterfaceName> in tack.yaml.
-type InterfaceConfig struct {
+// OutputConfig is one entry under a target's output list in tack.yaml: one
+// named implementation to generate for that target's interface.
+type OutputConfig struct {
 	// Name is the constructor/struct name prefix (New<Name><Interface>).
 	Name string
-	// Output is the generated file name. Empty means the default
-	// derivation (lower(Name)_lower(interface)_gen.go) applies.
-	Output string
-	// LocalScan controls whether the interface's own package directory is
+	// Package is the module-relative directory to write the generated file
+	// into and scan as this variant's local provider scope. Empty means the
+	// target's own Package (see EffectiveDir).
+	Package string
+	// File is the generated file name. Empty means the default derivation
+	// (lower(name)_lower(interface)_gen.go) applies.
+	File string
+	// LocalScan controls whether this variant's effective directory is
 	// scanned as a local provider scope. Defaults to true.
 	LocalScan bool
+}
+
+// EffectiveDir returns the module-relative directory this output variant
+// writes into and scans as its local provider scope: its own Package if set,
+// otherwise t's Package.
+func (o OutputConfig) EffectiveDir(t TargetConfig) string {
+	if o.Package != "" {
+		return o.Package
+	}
+	return t.Package
+}
+
+// Filename returns the configured output filename for o, or the default
+// derivation (lower(name)_lower(interface)_gen.go) when none is configured.
+func (o OutputConfig) Filename(interfaceName string) string {
+	if o.File != "" {
+		return o.File
+	}
+	return strings.ToLower(o.Name) + "_" + strings.ToLower(interfaceName) + "_gen.go"
+}
+
+// TargetConfig is one entry under top-level targets: in tack.yaml: an
+// interface, declared in Package, and one or more named Output variants to
+// generate for it.
+type TargetConfig struct {
+	// Package is the module-relative directory where Interface is declared.
+	Package string
+	// Interface is the Go interface name declared in Package.
+	Interface string
+	// Output is the list of named implementations to generate. Always
+	// non-empty for a successfully parsed config.
+	Output []OutputConfig
 }
 
 // Config is a fully parsed and validated tack.yaml.
@@ -26,14 +64,14 @@ type Config struct {
 	// Path is the absolute path to the tack.yaml file that was loaded.
 	Path string
 	// ModuleRoot is the absolute path to the directory containing go.mod,
-	// against which Providers and Packages directories are resolved.
+	// against which Providers and Targets directories are resolved.
 	ModuleRoot string
 	// Providers is the module-relative directory list forming the global
 	// provider scope.
 	Providers []string
-	// Packages maps a module-relative package directory to its configured
-	// interfaces, keyed by interface name.
-	Packages map[string]map[string]InterfaceConfig
+	// Targets is the list of configured interfaces and their output
+	// variants, in file declaration order.
+	Targets []TargetConfig
 }
 
 // Discover walks up from startDir looking for tack.yaml, returning the path
@@ -119,7 +157,7 @@ func parseFile(path string) (*Config, error) {
 		return nil, fmt.Errorf("tack: config %s: expected a mapping at the top level", path)
 	}
 
-	cfg := &Config{Packages: map[string]map[string]InterfaceConfig{}}
+	cfg := &Config{}
 
 	for i := 0; i < len(doc.Content); i += 2 {
 		keyNode, valNode := doc.Content[i], doc.Content[i+1]
@@ -128,76 +166,132 @@ func parseFile(path string) (*Config, error) {
 			if err := valNode.Decode(&cfg.Providers); err != nil {
 				return nil, fmt.Errorf("tack: config %s: providers: %w", path, err)
 			}
-		case "packages":
-			if err := parsePackages(path, valNode, cfg); err != nil {
+		case "targets":
+			if err := parseTargets(path, valNode, cfg); err != nil {
 				return nil, err
 			}
+		case "packages":
+			return nil, fmt.Errorf("tack: config %s: packages: top-level packages is no longer supported; use targets instead", path)
 		default:
 			return nil, fmt.Errorf("tack: config %s: unknown key %q at top level", path, keyNode.Value)
 		}
 	}
 
+	if err := validateNoOutputCollisions(path, cfg); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
 }
 
-func parsePackages(path string, node *yaml.Node, cfg *Config) error {
-	if node.Kind != yaml.MappingNode {
-		return fmt.Errorf("tack: config %s: packages: expected a mapping of package directory to interfaces", path)
+func parseTargets(path string, node *yaml.Node, cfg *Config) error {
+	if node.Kind != yaml.SequenceNode {
+		return fmt.Errorf("tack: config %s: targets: expected a list of target entries", path)
 	}
-	for i := 0; i < len(node.Content); i += 2 {
-		pkgKeyNode, pkgValNode := node.Content[i], node.Content[i+1]
-		pkgPath := pkgKeyNode.Value
-		if pkgValNode.Kind != yaml.MappingNode {
-			return fmt.Errorf("tack: config %s: packages.%s: expected a mapping of interface name to config", path, pkgPath)
+	for i, item := range node.Content {
+		tc, err := parseTargetConfig(path, fmt.Sprintf("targets[%d]", i), item)
+		if err != nil {
+			return err
 		}
-
-		interfaces := map[string]InterfaceConfig{}
-		for j := 0; j < len(pkgValNode.Content); j += 2 {
-			ifaceKeyNode, ifaceValNode := pkgValNode.Content[j], pkgValNode.Content[j+1]
-			ifaceName := ifaceKeyNode.Value
-
-			if ifaceName == "providers" {
-				return fmt.Errorf("tack: config %s: packages.%s.providers: package-level providers is no longer supported; use the top-level providers list", path, pkgPath)
-			}
-
-			ic, err := parseInterfaceConfig(path, pkgPath, ifaceName, ifaceValNode)
-			if err != nil {
-				return err
-			}
-			interfaces[ifaceName] = ic
-		}
-		cfg.Packages[pkgPath] = interfaces
+		cfg.Targets = append(cfg.Targets, tc)
 	}
 	return nil
 }
 
-func parseInterfaceConfig(path, pkgPath, ifaceName string, node *yaml.Node) (InterfaceConfig, error) {
+func parseTargetConfig(path, loc string, node *yaml.Node) (TargetConfig, error) {
 	if node.Kind != yaml.MappingNode {
-		return InterfaceConfig{}, fmt.Errorf("tack: config %s: packages.%s.%s: expected a mapping", path, pkgPath, ifaceName)
+		return TargetConfig{}, fmt.Errorf("tack: config %s: %s: expected a mapping", path, loc)
 	}
 
-	ic := InterfaceConfig{LocalScan: true}
-	for k := 0; k < len(node.Content); k += 2 {
-		fieldKeyNode, fieldValNode := node.Content[k], node.Content[k+1]
+	tc := TargetConfig{}
+	var outputNode *yaml.Node
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode, valNode := node.Content[i], node.Content[i+1]
+		switch keyNode.Value {
+		case "package":
+			tc.Package = valNode.Value
+		case "interface":
+			tc.Interface = valNode.Value
+		case "output":
+			outputNode = valNode
+		case "providers":
+			return TargetConfig{}, fmt.Errorf("tack: config %s: %s.providers: target-level providers is no longer supported; use the top-level providers list", path, loc)
+		default:
+			return TargetConfig{}, fmt.Errorf("tack: config %s: %s.%s: unknown key", path, loc, keyNode.Value)
+		}
+	}
+
+	if tc.Package == "" {
+		return TargetConfig{}, fmt.Errorf("tack: config %s: %s: missing required key %q", path, loc, "package")
+	}
+	if tc.Interface == "" {
+		return TargetConfig{}, fmt.Errorf("tack: config %s: %s: missing required key %q", path, loc, "interface")
+	}
+	if outputNode == nil {
+		return TargetConfig{}, fmt.Errorf("tack: config %s: %s: missing required key %q", path, loc, "output")
+	}
+	if outputNode.Kind != yaml.SequenceNode || len(outputNode.Content) == 0 {
+		return TargetConfig{}, fmt.Errorf("tack: config %s: %s.output: expected a non-empty list", path, loc)
+	}
+	for i, item := range outputNode.Content {
+		oc, err := parseOutputConfig(path, fmt.Sprintf("%s.output[%d]", loc, i), item)
+		if err != nil {
+			return TargetConfig{}, err
+		}
+		tc.Output = append(tc.Output, oc)
+	}
+
+	return tc, nil
+}
+
+func parseOutputConfig(path, loc string, node *yaml.Node) (OutputConfig, error) {
+	if node.Kind != yaml.MappingNode {
+		return OutputConfig{}, fmt.Errorf("tack: config %s: %s: expected a mapping", path, loc)
+	}
+
+	oc := OutputConfig{LocalScan: true}
+	for i := 0; i < len(node.Content); i += 2 {
+		fieldKeyNode, fieldValNode := node.Content[i], node.Content[i+1]
 		switch fieldKeyNode.Value {
 		case "name":
-			ic.Name = fieldValNode.Value
-		case "output":
-			ic.Output = fieldValNode.Value
+			oc.Name = fieldValNode.Value
+		case "package":
+			oc.Package = fieldValNode.Value
+		case "file":
+			oc.File = fieldValNode.Value
 		case "localScan":
 			var b bool
 			if err := fieldValNode.Decode(&b); err != nil {
-				return InterfaceConfig{}, fmt.Errorf("tack: config %s: packages.%s.%s.localScan: %w", path, pkgPath, ifaceName, err)
+				return OutputConfig{}, fmt.Errorf("tack: config %s: %s.localScan: %w", path, loc, err)
 			}
-			ic.LocalScan = b
+			oc.LocalScan = b
 		case "providers":
-			return InterfaceConfig{}, fmt.Errorf("tack: config %s: packages.%s.%s.providers: interface-level providers is no longer supported; use the top-level providers list", path, pkgPath, ifaceName)
+			return OutputConfig{}, fmt.Errorf("tack: config %s: %s.providers: output-level providers is no longer supported; use the top-level providers list", path, loc)
 		default:
-			return InterfaceConfig{}, fmt.Errorf("tack: config %s: packages.%s.%s.%s: unknown key", path, pkgPath, ifaceName, fieldKeyNode.Value)
+			return OutputConfig{}, fmt.Errorf("tack: config %s: %s.%s: unknown key", path, loc, fieldKeyNode.Value)
 		}
 	}
-	if ic.Name == "" {
-		return InterfaceConfig{}, fmt.Errorf("tack: config %s: packages.%s.%s: missing required key %q", path, pkgPath, ifaceName, "name")
+	if oc.Name == "" {
+		return OutputConfig{}, fmt.Errorf("tack: config %s: %s: missing required key %q", path, loc, "name")
 	}
-	return ic, nil
+	return oc, nil
+}
+
+// validateNoOutputCollisions fails if two output entries — within a target
+// or across different targets — resolve to the same effective directory and
+// filename, before any scanning or generation runs.
+func validateNoOutputCollisions(path string, cfg *Config) error {
+	type key struct{ dir, file string }
+	seen := map[key]string{}
+	for ti, t := range cfg.Targets {
+		for oi, o := range t.Output {
+			k := key{o.EffectiveDir(t), o.Filename(t.Interface)}
+			loc := fmt.Sprintf("targets[%d].output[%d]", ti, oi)
+			if prev, ok := seen[k]; ok {
+				return fmt.Errorf("tack: config %s: %s and %s both write %s/%s", path, prev, loc, k.dir, k.file)
+			}
+			seen[k] = loc
+		}
+	}
+	return nil
 }

@@ -83,8 +83,10 @@ func ProvideD(ctx context.Context) (*d.D, func(), error) {
 	cfg := &config.Config{
 		ModuleRoot: dir,
 		Providers:  []string{"prov"},
-		Packages: map[string]map[string]config.InterfaceConfig{
-			"target": {"IFace": {Name: "App", LocalScan: true}},
+		Targets: []config.TargetConfig{
+			{Package: "target", Interface: "IFace", Output: []config.OutputConfig{
+				{Name: "App", LocalScan: true},
+			}},
 		},
 	}
 
@@ -149,11 +151,13 @@ func ProvideX(ctx context.Context) (*x.X, func(), error) {
 	cfg := &config.Config{
 		ModuleRoot: dir,
 		Providers:  []string{"prov"},
-		Packages: map[string]map[string]config.InterfaceConfig{
-			"target": {
-				"A": {Name: "AppA", LocalScan: false},
-				"B": {Name: "AppB", LocalScan: true},
-			},
+		Targets: []config.TargetConfig{
+			{Package: "target", Interface: "A", Output: []config.OutputConfig{
+				{Name: "AppA", LocalScan: false},
+			}},
+			{Package: "target", Interface: "B", Output: []config.OutputConfig{
+				{Name: "AppB", LocalScan: true},
+			}},
 		},
 	}
 
@@ -203,8 +207,10 @@ func ProvideY(ctx context.Context) (*y.Y, func(), error) {
 	cfg := &config.Config{
 		ModuleRoot: dir,
 		Providers:  []string{"target"},
-		Packages: map[string]map[string]config.InterfaceConfig{
-			"target": {"IFace": {Name: "App", LocalScan: true}},
+		Targets: []config.TargetConfig{
+			{Package: "target", Interface: "IFace", Output: []config.OutputConfig{
+				{Name: "App", LocalScan: true},
+			}},
 		},
 	}
 
@@ -214,5 +220,132 @@ func ProvideY(ctx context.Context) (*y.Y, func(), error) {
 	}
 	if got := providerFor(t, results[0], "Val"); !strings.HasSuffix(got, "/target") {
 		t.Errorf("Val provider pkg = %s, want target package", got)
+	}
+}
+
+// TestResolveAll_SiblingOutputVariantUnaffectedByLocalScanOptOut configures
+// two output variants of the same target, sharing the target's own
+// directory as their effective local-scan directory, one with
+// localScan: false. The opt-out must affect only that variant.
+func TestResolveAll_SiblingOutputVariantUnaffectedByLocalScanOptOut(t *testing.T) {
+	dir := writeModule(t, map[string]string{
+		"go.mod": "module restest\n\ngo 1.26.5\n",
+		"x/x.go": "package x\n\ntype X struct{}\n",
+		"target/target.go": `package target
+
+import (
+	"context"
+
+	"restest/x"
+)
+
+type IFace interface {
+	Val() *x.X
+}
+
+func ProvideX(ctx context.Context) (*x.X, func(), error) {
+	return &x.X{}, func() {}, nil
+}
+`,
+		"prov/prov.go": `package prov
+
+import (
+	"context"
+
+	"restest/x"
+)
+
+func ProvideX(ctx context.Context) (*x.X, func(), error) {
+	return &x.X{}, func() {}, nil
+}
+`,
+	})
+
+	cfg := &config.Config{
+		ModuleRoot: dir,
+		Providers:  []string{"prov"},
+		Targets: []config.TargetConfig{
+			{Package: "target", Interface: "IFace", Output: []config.OutputConfig{
+				{Name: "OptedOut", LocalScan: false},
+				{Name: "Default", LocalScan: true},
+			}},
+		},
+	}
+
+	results, err := ResolveAll(cfg)
+	if err != nil {
+		t.Fatalf("ResolveAll: %v", err)
+	}
+	byName := map[string]*Interface{}
+	for _, r := range results {
+		byName[r.Output.Name] = r
+	}
+
+	if got := providerFor(t, byName["OptedOut"], "Val"); !strings.HasSuffix(got, "/prov") {
+		t.Errorf("OptedOut.Val provider pkg = %s, want global (prov) package (localScan: false)", got)
+	}
+	if got := providerFor(t, byName["Default"], "Val"); !strings.HasSuffix(got, "/target") {
+		t.Errorf("Default.Val provider pkg = %s, want local (target) package", got)
+	}
+}
+
+// TestResolveAll_DifferentiatedVariantsScanOnlyOwnDirectory configures two
+// output variants of the same target, each with a different output.package,
+// each of those directories providing its own qualifying provider for the
+// same type. Each variant must resolve from its own directory only.
+func TestResolveAll_DifferentiatedVariantsScanOnlyOwnDirectory(t *testing.T) {
+	dir := writeModule(t, map[string]string{
+		"go.mod":         "module restest\n\ngo 1.26.5\n",
+		"state/state.go": "package state\n\ntype Store struct{ Env string }\n\ntype State interface {\n\tVal() *Store\n}\n",
+		"state/prod/prod.go": `package prod
+
+import (
+	"context"
+
+	"restest/state"
+)
+
+func ProvideStore(ctx context.Context) (*state.Store, func(), error) {
+	return &state.Store{Env: "prod"}, func() {}, nil
+}
+`,
+		"state/staging/staging.go": `package staging
+
+import (
+	"context"
+
+	"restest/state"
+)
+
+func ProvideStore(ctx context.Context) (*state.Store, func(), error) {
+	return &state.Store{Env: "staging"}, func() {}, nil
+}
+`,
+	})
+
+	cfg := &config.Config{
+		ModuleRoot: dir,
+		Targets: []config.TargetConfig{
+			{Package: "state", Interface: "State", Output: []config.OutputConfig{
+				{Name: "Prod", Package: "state/prod", LocalScan: true},
+				{Name: "Staging", Package: "state/staging", LocalScan: true},
+			}},
+		},
+	}
+
+	results, err := ResolveAll(cfg)
+	if err != nil {
+		t.Fatalf("ResolveAll: %v", err)
+	}
+	byName := map[string]*Interface{}
+	for _, r := range results {
+		byName[r.Output.Name] = r
+	}
+
+	if got := providerFor(t, byName["Prod"], "Val"); !strings.HasSuffix(got, "/state/prod") {
+		t.Errorf("Prod.Val provider pkg = %s, want state/prod package", got)
+	}
+	if got := providerFor(t, byName["Staging"], "Val"); !strings.HasSuffix(got, "/state/staging") {
+		t.Errorf("Staging.Val provider pkg = %s, want state/staging package", got)
 	}
 }

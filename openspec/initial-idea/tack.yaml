@@ -1,8 +1,16 @@
 providers:
   - src/provider-01
   - src/provider-02
-packages:
-  src/iface:
-    Iface:
-      name: App
-      output: app_iface_gen.go
+targets:
+  - package: src/iface
+    interface: Iface
+    output:
+      - name: App
+        file: app_iface_gen.go
+  - package: src/state
+    interface: State
+    output:
+      - name: Prod
+        package: src/state/prod
+      - name: Staging
+        package: src/state/staging

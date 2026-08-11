@@ -43,10 +43,22 @@ func copyDir(t *testing.T, src, dst string) {
 	}
 }
 
+// goldenFiles are every generated file checked in under openspec/initial-idea,
+// relative to the fixture root: the single-variant Iface/App case, plus the
+// differentiated State/Prod/Staging case (cross-package qualified emission,
+// Prod's local-provider override, and Staging's scaffold-on-demand +
+// global-fallback path, since src/state/staging has no hand-written source
+// of its own in the checked-in fixture).
+var goldenFiles = []string{
+	filepath.Join("src", "iface", "app_iface_gen.go"),
+	filepath.Join("src", "state", "prod", "prod_state_gen.go"),
+	filepath.Join("src", "state", "staging", "staging_state_gen.go"),
+}
+
 // TestGoldenFixture copies the openspec/initial-idea reference fixture to a
 // temp directory, runs the generator in-process (a direct call, not
-// exec.Command) against its tack.yaml, asserts the regenerated
-// app_iface_gen.go matches the checked-in file byte-for-byte, and then
+// exec.Command) against its tack.yaml, asserts every regenerated file in
+// goldenFiles matches the checked-in file byte-for-byte, and then
 // go build ./...'s the temp copy to confirm the regenerated output compiles.
 func TestGoldenFixture(t *testing.T) {
 	wd, err := os.Getwd()
@@ -63,16 +75,18 @@ func TestGoldenFixture(t *testing.T) {
 		t.Fatalf("runGenerate: %v", err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(tempDir, "src", "iface", "app_iface_gen.go"))
-	if err != nil {
-		t.Fatalf("read regenerated file: %v", err)
-	}
-	want, err := os.ReadFile(filepath.Join(fixtureSrc, "src", "iface", "app_iface_gen.go"))
-	if err != nil {
-		t.Fatalf("read checked-in golden file: %v", err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("regenerated app_iface_gen.go does not match the checked-in golden file byte-for-byte.\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	for _, rel := range goldenFiles {
+		got, err := os.ReadFile(filepath.Join(tempDir, rel))
+		if err != nil {
+			t.Fatalf("read regenerated %s: %v", rel, err)
+		}
+		want, err := os.ReadFile(filepath.Join(fixtureSrc, rel))
+		if err != nil {
+			t.Fatalf("read checked-in golden %s: %v", rel, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("regenerated %s does not match the checked-in golden file byte-for-byte.\n--- got ---\n%s\n--- want ---\n%s", rel, got, want)
+		}
 	}
 
 	cmd := exec.Command("go", "build", "./...")

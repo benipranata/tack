@@ -42,37 +42,54 @@ func TestSchema_GoldenConfigValidates(t *testing.T) {
 	}
 }
 
-func TestSchema_RejectsPackageLevelProvidersKey(t *testing.T) {
+func TestSchema_RejectsRemovedTopLevelPackagesKey(t *testing.T) {
 	sch := compileSchema(t)
 
 	doc := decodeYAML(t, `
 packages:
   src/iface:
-    providers:
-      - src/other
     Iface:
       name: App
 `)
 
 	if err := sch.Validate(doc); err == nil {
-		t.Error("expected schema validation to fail for package-level providers key, got nil")
+		t.Error("expected schema validation to fail for the removed top-level packages key, got nil")
 	}
 }
 
-func TestSchema_RejectsInterfaceLevelProvidersKey(t *testing.T) {
+func TestSchema_RejectsTargetLevelProvidersKey(t *testing.T) {
 	sch := compileSchema(t)
 
 	doc := decodeYAML(t, `
-packages:
-  src/iface:
-    Iface:
-      name: App
-      providers:
-        - src/other
+targets:
+  - package: src/iface
+    interface: Iface
+    providers:
+      - src/other
+    output:
+      - name: App
 `)
 
 	if err := sch.Validate(doc); err == nil {
-		t.Error("expected schema validation to fail for interface-level providers key, got nil")
+		t.Error("expected schema validation to fail for target-level providers key, got nil")
+	}
+}
+
+func TestSchema_RejectsOutputLevelProvidersKey(t *testing.T) {
+	sch := compileSchema(t)
+
+	doc := decodeYAML(t, `
+targets:
+  - package: src/iface
+    interface: Iface
+    output:
+      - name: App
+        providers:
+          - src/other
+`)
+
+	if err := sch.Validate(doc); err == nil {
+		t.Error("expected schema validation to fail for output-level providers key, got nil")
 	}
 }
 
@@ -81,13 +98,34 @@ func TestSchema_RejectsUnknownTopLevelKey(t *testing.T) {
 
 	doc := decodeYAML(t, `
 bogus: true
-packages:
-  src/iface:
-    Iface:
-      name: App
+targets:
+  - package: src/iface
+    interface: Iface
+    output:
+      - name: App
 `)
 
 	if err := sch.Validate(doc); err == nil {
 		t.Error("expected schema validation to fail for unknown top-level key, got nil")
+	}
+}
+
+func TestSchema_AcceptsMultipleOutputVariants(t *testing.T) {
+	sch := compileSchema(t)
+
+	doc := decodeYAML(t, `
+targets:
+  - package: src/state
+    interface: State
+    output:
+      - name: Prod
+        package: src/state/prod
+      - name: Staging
+        package: src/state/staging
+        localScan: false
+`)
+
+	if err := sch.Validate(doc); err != nil {
+		t.Errorf("expected multiple output variants to validate, got: %v", err)
 	}
 }
