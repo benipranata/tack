@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/benipranata/tack/main/tack.schema.json",
+  "title": "tack.yaml",
+  "description": "Config for tack, a Go dependency-wiring generator. See https://github.com/benipranata/tack.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "providers": {
+      "type": "array",
+      "description": "Package directories (relative to the go.mod that owns this config) scanned for the global provider scope, shared by every configured interface unless shadowed by a local provider of the same type.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "packages": {
+      "type": "object",
+      "description": "Interfaces to generate wiring for, keyed by their own package directory.",
+      "additionalProperties": {
+        "type": "object",
+        "description": "Interfaces to generate wiring for in this package directory, keyed by Go interface name. This directory is always scanned as a local provider scope too, unless localScan is set to false.",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Constructor/struct name prefix, e.g. name: App -> NewAppIface."
+            },
+            "output": {
+              "type": "string",
+              "description": "Generated file name. Defaults to lower(name)_lower(interface)_gen.go."
+            },
+            "localScan": {
+              "type": "boolean",
+              "description": "Set to false to resolve this interface only from the global provider scope, skipping its own package directory as a local scope.",
+              "default": true
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    }
+  }
+}

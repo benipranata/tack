@@ -181,6 +181,12 @@ packages: # interfaces to generate wiring for
       localScan: true # optional; set to false to resolve only from the global scope
 ```
 
+A JSON Schema for `tack.yaml` is published at
+[`tack.schema.json`](tack.schema.json). `tack init` scaffolds every starter config with a
+`# yaml-language-server: $schema=...` comment pointing at it, so any YAML-aware editor (VS Code +
+[redhat.vscode-yaml](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml),
+GoLand, Zed, ...) gets autocompletion and inline validation with no further setup.
+
 ## Development
 
 ```sh

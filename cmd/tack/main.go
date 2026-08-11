@@ -13,7 +13,8 @@ import (
 	"github.com/benipranata/tack/internal/resolve"
 )
 
-const starterConfig = `# tack.yaml
+const starterConfig = `# yaml-language-server: $schema=https://raw.githubusercontent.com/benipranata/tack/main/tack.schema.json
+# tack.yaml
 #
 # providers: package directories (relative to the go.mod that owns this
 # config) scanned for the global provider scope, shared by every configured
