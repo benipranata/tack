@@ -40,7 +40,7 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 		}
 
 		for j, o := range t.Outputs {
-			methods, err := resolveMethods(providerLayers(cfg, t, o, pkgs), wants)
+			methods, err := resolveMethods(providerLayers(cfg, o, pkgs), wants)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("%s.output[%d]: %w", at, j, err))
 				continue
@@ -66,11 +66,11 @@ func packageDirs(cfg *config.Config) []string {
 	dirs := slices.Clone(cfg.Providers)
 	for _, t := range cfg.Targets {
 		dirs = append(dirs, t.Package)
-		if t.Provider != "" {
-			dirs = append(dirs, t.Provider)
-		}
 		for _, o := range t.Outputs {
 			dirs = append(dirs, o.Package)
+			if o.Provider != "" {
+				dirs = append(dirs, o.Provider)
+			}
 		}
 	}
 	slices.Sort(dirs)
@@ -124,8 +124,11 @@ func checkPackages(cfg *config.Config, pkgs map[string]*packages.Package) error 
 		if err := requirePackage(pkgs, t.Package, at+".package"); err != nil {
 			errs = append(errs, err)
 		}
-		if t.Provider != "" {
-			if err := requirePackage(pkgs, t.Provider, at+".provider"); err != nil {
+		for j, o := range t.Outputs {
+			if o.Provider == "" {
+				continue
+			}
+			if err := requirePackage(pkgs, o.Provider, fmt.Sprintf("%s.output[%d].provider", at, j)); err != nil {
 				errs = append(errs, err)
 			}
 		}

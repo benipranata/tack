@@ -42,8 +42,12 @@ func pkgOf(dir, name string) Package {
 func TestLoad(t *testing.T) {
 	svc := pkgOf("svc", "svc")
 	out := config.Output{Name: "NewService", Package: "svc", Filename: "service_gen.go"}
-	target := func(provider string, outs ...config.Output) config.Target {
-		return config.Target{Package: "svc", Interface: "Service", Provider: provider, Outputs: outs}
+	target := func(outs ...config.Output) config.Target {
+		return config.Target{Package: "svc", Interface: "Service", Outputs: outs}
+	}
+	named := func(o Output, name, filename string) Output {
+		o.Name, o.Filename = name, filename
+		return o
 	}
 	output := func(p Package, providerDir, providerPkg string) Output {
 		return Output{
@@ -70,18 +74,39 @@ func TestLoad(t *testing.T) {
 		{
 			name:  "global provider",
 			files: map[string]string{"svc/svc.go": serviceSrc, "global/g.go": providerFile("global")},
-			cfg:   config.Config{Providers: []string{"global"}, Targets: []config.Target{target("", out)}},
+			cfg:   config.Config{Providers: []string{"global"}, Targets: []config.Target{target(out)}},
 			want:  []Output{output(svc, "global", "global")},
 		},
 		{
-			name: "target provider wins over global",
+			name: "output provider wins over global",
 			files: map[string]string{
 				"svc/svc.go":    serviceSrc,
 				"global/g.go":   providerFile("global"),
 				"special/sp.go": providerFile("special"),
 			},
-			cfg:  config.Config{Providers: []string{"global"}, Targets: []config.Target{target("special", out)}},
+			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{target(
+				config.Output{Name: "NewService", Package: "svc", Filename: "service_gen.go", Provider: "special"},
+			)}},
 			want: []Output{output(svc, "special", "special")},
+		},
+		{
+			name: "each output of one target uses its own provider",
+			files: map[string]string{
+				"svc/svc.go":         serviceSrc,
+				"global/g.go":        providerFile("global"),
+				"prod/prod.go":       providerFile("prod"),
+				"staging/staging.go": providerFile("staging"),
+			},
+			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{target(
+				config.Output{Name: "NewProd", Package: "svc", Filename: "prod_gen.go", Provider: "prod"},
+				config.Output{Name: "NewStaging", Package: "svc", Filename: "staging_gen.go", Provider: "staging"},
+				config.Output{Name: "NewDefault", Package: "svc", Filename: "default_gen.go"},
+			)}},
+			want: []Output{
+				named(output(svc, "prod", "prod"), "NewProd", "prod_gen.go"),
+				named(output(svc, "staging", "staging"), "NewStaging", "staging_gen.go"),
+				named(output(svc, "global", "global"), "NewDefault", "default_gen.go"),
+			},
 		},
 		{
 			name: "output package is the last resort",
@@ -90,7 +115,7 @@ func TestLoad(t *testing.T) {
 				"svc/prod/prod.go": providerFile("prod"),
 			},
 			cfg: config.Config{Targets: []config.Target{
-				target("", config.Output{Name: "NewService", Package: "svc/prod", Filename: "service_gen.go"}),
+				target(config.Output{Name: "NewService", Package: "svc/prod", Filename: "service_gen.go"}),
 			}},
 			want: []Output{output(pkgOf("svc/prod", "prod"), "svc/prod", "prod")},
 		},
@@ -98,7 +123,7 @@ func TestLoad(t *testing.T) {
 			name:  "output package that does not exist yet",
 			files: map[string]string{"svc/svc.go": serviceSrc, "global/g.go": providerFile("global")},
 			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{
-				target("", config.Output{Name: "NewService", Package: "svc/prod", Filename: "service_gen.go"}),
+				target(config.Output{Name: "NewService", Package: "svc/prod", Filename: "service_gen.go"}),
 			}},
 			want: []Output{output(pkgOf("svc/prod", "prod"), "global", "global")},
 		},
@@ -106,7 +131,7 @@ func TestLoad(t *testing.T) {
 			name:  "a target with two outputs",
 			files: map[string]string{"svc/svc.go": serviceSrc, "global/g.go": providerFile("global")},
 			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{
-				target("", out, config.Output{Name: "NewOther", Package: "svc", Filename: "other_gen.go"}),
+				target(out, config.Output{Name: "NewOther", Package: "svc", Filename: "other_gen.go"}),
 			}},
 			want: []Output{
 				output(svc, "global", "global"),
@@ -127,7 +152,7 @@ func TestLoad(t *testing.T) {
 				"svc/service_gen.go": "package svc\n\nvar _ = missing\n",
 				"global/g.go":        providerFile("global"),
 			},
-			cfg:  config.Config{Providers: []string{"global"}, Targets: []config.Target{target("", out)}},
+			cfg:  config.Config{Providers: []string{"global"}, Targets: []config.Target{target(out)}},
 			want: []Output{output(svc, "global", "global")},
 		},
 		{
@@ -137,26 +162,26 @@ func TestLoad(t *testing.T) {
 				"a/a.go":     providerFile("a"),
 				"b/b.go":     providerFile("b"),
 			},
-			cfg:     config.Config{Providers: []string{"a", "b"}, Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Providers: []string{"a", "b"}, Targets: []config.Target{target(out)}},
 			wantErr: []string{"targets[0].output[0]: Logger(): *log.Logger is provided by a.ProvideLogger, b.ProvideLogger"},
 		},
 		{
 			name:    "missing provider",
 			files:   map[string]string{"svc/svc.go": serviceSrc},
-			cfg:     config.Config{Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Targets: []config.Target{target(out)}},
 			wantErr: []string{"targets[0].output[0]: Logger(): no provider returns *log.Logger"},
 		},
 		{
 			name:    "interface not found",
 			files:   map[string]string{"svc/svc.go": "package svc\n"},
-			cfg:     config.Config{Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Targets: []config.Target{target(out)}},
 			wantErr: []string{`targets[0].interface: type "Service" not found`},
 		},
 		{
 			name:  "every failing target is reported",
 			files: map[string]string{"svc/svc.go": serviceSrc},
 			cfg: config.Config{Targets: []config.Target{
-				target("", out),
+				target(out),
 				{Package: "svc", Interface: "Nope", Outputs: []config.Output{out}},
 			}},
 			wantErr: []string{
@@ -167,26 +192,34 @@ func TestLoad(t *testing.T) {
 		{
 			name:    "target package missing",
 			files:   map[string]string{},
-			cfg:     config.Config{Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Targets: []config.Target{target(out)}},
 			wantErr: []string{`targets[0].package: package "svc" not found`},
 		},
 		{
 			name:    "provider package missing",
 			files:   map[string]string{"svc/svc.go": serviceSrc},
-			cfg:     config.Config{Providers: []string{"nope"}, Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Providers: []string{"nope"}, Targets: []config.Target{target(out)}},
 			wantErr: []string{`providers[0]: package "nope" not found`},
+		},
+		{
+			name:  "output provider package missing",
+			files: map[string]string{"svc/svc.go": serviceSrc},
+			cfg: config.Config{Targets: []config.Target{target(
+				config.Output{Name: "NewService", Package: "svc", Filename: "service_gen.go", Provider: "nope"},
+			)}},
+			wantErr: []string{`targets[0].output[0].provider: package "nope" not found`},
 		},
 		{
 			name:    "provider package does not parse",
 			files:   map[string]string{"svc/svc.go": serviceSrc, "bad/bad.go": "package bad\n\nfunc {"},
-			cfg:     config.Config{Providers: []string{"bad"}, Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Providers: []string{"bad"}, Targets: []config.Target{target(out)}},
 			wantErr: []string{"providers[0]:"},
 		},
 		{
 			name:    "no go.mod",
 			files:   map[string]string{"svc/svc.go": serviceSrc},
 			noMod:   true,
-			cfg:     config.Config{Targets: []config.Target{target("", out)}},
+			cfg:     config.Config{Targets: []config.Target{target(out)}},
 			wantErr: []string{"go.mod file not found"},
 		},
 	}
@@ -230,7 +263,7 @@ func TestPackageDirs(t *testing.T) {
 			cfg: config.Config{
 				Providers: []string{"infra", "shared"},
 				Targets: []config.Target{
-					{Package: "cache", Provider: "shared", Outputs: []config.Output{{Package: "cache"}, {Package: "wire"}}},
+					{Package: "cache", Outputs: []config.Output{{Package: "cache", Provider: "shared"}, {Package: "wire"}}},
 					{Package: "db", Outputs: []config.Output{{Package: "wire"}}},
 				},
 			},
@@ -342,12 +375,12 @@ func TestCheckPackages(t *testing.T) {
 			name: "all present",
 			cfg: config.Config{
 				Providers: []string{"p"},
-				Targets:   []config.Target{{Package: "t", Provider: "tp"}},
+				Targets:   []config.Target{{Package: "t", Outputs: []config.Output{{Provider: "op"}}}},
 			},
-			pkgs: map[string]*packages.Package{"p": ok, "t": ok, "tp": ok},
+			pkgs: map[string]*packages.Package{"p": ok, "t": ok, "op": ok},
 		},
 		{
-			name: "target without a provider override",
+			name: "output without a provider override",
 			cfg:  config.Config{Targets: []config.Target{{Package: "t"}}},
 			pkgs: map[string]*packages.Package{"t": ok},
 		},
@@ -355,13 +388,16 @@ func TestCheckPackages(t *testing.T) {
 			name: "every problem is reported with its field path",
 			cfg: config.Config{
 				Providers: []string{"p"},
-				Targets:   []config.Target{{Package: "t", Provider: "tp"}, {Package: "u"}},
+				Targets: []config.Target{
+					{Package: "t", Outputs: []config.Output{{}, {Provider: "op"}}},
+					{Package: "u"},
+				},
 			},
 			pkgs: map[string]*packages.Package{"t": broken},
 			wantErr: []string{
 				`providers[0]: package "p" not found`,
 				"targets[0].package: ",
-				`targets[0].provider: package "tp" not found`,
+				`targets[0].output[1].provider: package "op" not found`,
 				`targets[1].package: package "u" not found`,
 			},
 		},

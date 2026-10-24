@@ -213,17 +213,15 @@ func TestResolveTarget(t *testing.T) {
 			},
 		},
 		{
-			name: "keeps explicit outputs and normalises provider",
+			name: "keeps explicit outputs",
 			in: Target{
 				Package:   "cache",
 				Interface: "Redis",
-				Provider:  "./p/",
 				Outputs:   []Output{{Name: "Open", Package: "wire", Filename: "open_gen.go"}},
 			},
 			want: Target{
 				Package:   "cache",
 				Interface: "Redis",
-				Provider:  "p",
 				Outputs:   []Output{{Name: "Open", Package: "wire", Filename: "open_gen.go"}},
 			},
 		},
@@ -241,11 +239,6 @@ func TestResolveTarget(t *testing.T) {
 			name:    "invalid interface",
 			in:      Target{Package: "a", Interface: "1x"},
 			wantErr: []string{`targets[0].interface: "1x" is not a valid Go identifier`},
-		},
-		{
-			name:    "invalid provider",
-			in:      Target{Package: "a", Interface: "A", Provider: "/p"},
-			wantErr: []string{`targets[0].provider: "/p" must be relative to the module root`},
 		},
 		{
 			name:    "reports every target problem together",
@@ -293,9 +286,14 @@ func TestResolveOutput(t *testing.T) {
 			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go"},
 		},
 		{
-			name: "explicit values are kept, package normalised",
-			in:   Output{Name: "Open", Package: "./wire/", Filename: "open_gen.go"},
-			want: Output{Name: "Open", Package: "wire", Filename: "open_gen.go"},
+			name: "explicit values are kept, paths normalised",
+			in:   Output{Name: "Open", Package: "./wire/", Filename: "open_gen.go", Provider: "./p/"},
+			want: Output{Name: "Open", Package: "wire", Filename: "open_gen.go", Provider: "p"},
+		},
+		{
+			name:    "invalid provider",
+			in:      Output{Name: "Open", Provider: "/p"},
+			wantErr: []string{`o[0].provider: "/p" must be relative to the module root`},
 		},
 		{
 			name:    "invalid package",

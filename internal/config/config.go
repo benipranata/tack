@@ -89,14 +89,6 @@ func resolveTarget(t *Target, prefix, at string) error {
 		errs = append(errs, fmt.Errorf("%s.interface: %q is not a valid Go identifier", at, t.Interface))
 	}
 
-	if t.Provider != "" {
-		p, err := cleanPath(t.Provider)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s.provider: %w", at, err))
-		}
-		t.Provider = p
-	}
-
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
@@ -122,6 +114,14 @@ func resolveOutput(o *Output, t *Target, prefix, at string) error {
 			errs = append(errs, fmt.Errorf("%s.package: %w", at, err))
 		}
 		o.Package = p
+	}
+
+	if o.Provider != "" {
+		p, err := cleanPath(o.Provider)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s.provider: %w", at, err))
+		}
+		o.Provider = p
 	}
 
 	if o.Name == "" {

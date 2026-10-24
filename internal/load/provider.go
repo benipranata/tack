@@ -17,11 +17,11 @@ type candidate struct {
 	result types.Type
 }
 
-// providerLayers lists provider candidates in lookup order: the target's provider, the global providers, the output package.
-func providerLayers(cfg *config.Config, t config.Target, o config.Output, pkgs map[string]*packages.Package) [][]candidate {
+// providerLayers lists provider candidates in lookup order: the output's provider, the global providers, the output package.
+func providerLayers(cfg *config.Config, o config.Output, pkgs map[string]*packages.Package) [][]candidate {
 	var layers [][]candidate
-	if t.Provider != "" {
-		layers = append(layers, providersIn(pkgs, t.Provider, true))
+	if o.Provider != "" {
+		layers = append(layers, providersIn(pkgs, o.Provider, true))
 	}
 
 	var global []candidate

@@ -46,15 +46,13 @@ func private%s(ctx context.Context) (*int, func(), error) { return nil, nil, nil
 	tests := []struct {
 		name   string
 		cfg    *config.Config
-		target config.Target
 		output config.Output
 		want   [][]string
 	}{
 		{
-			name:   "target provider, global providers, then output package",
+			name:   "output provider, global providers, then output package",
 			cfg:    &config.Config{Providers: []string{"global", "other"}},
-			target: config.Target{Provider: "over"},
-			output: config.Output{Package: "out"},
+			output: config.Output{Package: "out", Provider: "over"},
 			want: [][]string{
 				{"over.ProvideOver"},
 				{"global.ProvideGlobal", "other.ProvideOther"},
@@ -62,9 +60,8 @@ func private%s(ctx context.Context) (*int, func(), error) { return nil, nil, nil
 			},
 		},
 		{
-			name:   "no target provider",
+			name:   "no output provider",
 			cfg:    &config.Config{Providers: []string{"global"}},
-			target: config.Target{},
 			output: config.Output{Package: "out"},
 			want: [][]string{
 				{"global.ProvideGlobal"},
@@ -74,7 +71,6 @@ func private%s(ctx context.Context) (*int, func(), error) { return nil, nil, nil
 		{
 			name:   "no providers and a missing output package",
 			cfg:    &config.Config{},
-			target: config.Target{},
 			output: config.Output{Package: "new"},
 			want:   [][]string{nil, nil},
 		},
@@ -82,7 +78,7 @@ func private%s(ctx context.Context) (*int, func(), error) { return nil, nil, nil
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, names(providerLayers(tc.cfg, tc.target, tc.output, pkgs)))
+			require.Equal(t, tc.want, names(providerLayers(tc.cfg, tc.output, pkgs)))
 		})
 	}
 }
