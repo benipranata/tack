@@ -55,6 +55,7 @@ func resolveConfig(c *Config) error {
 		}
 		c.Providers[i] = clean
 	}
+	c.Providers = dedupe(c.Providers)
 
 	if len(c.Targets) == 0 {
 		errs = append(errs, errors.New("targets: at least one target is required"))
@@ -212,6 +213,19 @@ func defaultName(prefix, iface, suffix string) string {
 func mapFirst(s string, f func(rune) rune) string {
 	r, n := utf8.DecodeRuneInString(s)
 	return string(f(r)) + s[n:]
+}
+
+// dedupe drops repeated paths and keeps the first occurrence of each, so the provider order stays as written.
+func dedupe(paths []string) []string {
+	seen := make(map[string]bool, len(paths))
+	var out []string
+	for _, p := range paths {
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func cleanPath(p string) (string, error) {

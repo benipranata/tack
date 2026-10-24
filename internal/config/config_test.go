@@ -222,6 +222,19 @@ func TestResolveConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "a provider listed twice counts once",
+			in:   Config{Prefix: "New", Providers: []string{"infra", "./infra/", "pkg", "infra"}, Targets: []Target{redis}},
+			want: Config{
+				Prefix:    "New",
+				Providers: []string{"infra", "pkg"},
+				Targets: []Target{{
+					Package:   "cache",
+					Interface: "Redis",
+					Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
+				}},
+			},
+		},
+		{
 			name: "prefix and suffix reach every target",
 			in:   Config{Prefix: "New", Suffix: "State", Targets: []Target{redis, {Package: "cache", Interface: "lru"}}},
 			want: Config{
@@ -646,6 +659,24 @@ func TestCheckDuplicates(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDedupe(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{name: "nil", in: nil, want: nil},
+		{name: "no repeats", in: []string{"b", "a"}, want: []string{"b", "a"}},
+		{name: "keeps the first occurrence in order", in: []string{"b", "a", "b", "a", "c"}, want: []string{"b", "a", "c"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, dedupe(tc.in))
 		})
 	}
 }
