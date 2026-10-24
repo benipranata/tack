@@ -346,7 +346,10 @@ An unexported interface gets an unexported constructor: `redis` with `prefix: Ne
 `suffix: State` gives `redisState`. The test double adds `Test` to the final name, so `suffix: State` on `Redis`
 gives `RedisState` and `RedisStateTest`.
 
-Within one package, no two outputs may share a name or a file, and that includes the test double names and files. A test double file is reserved even when `test` is off, because tack removes it then.
+**One package, several outputs**
+
+Within one package, no two outputs may share a name or a file, and that includes the test double names and files.
+A test double file is reserved even when `test` is off, because tack removes it then.
 
 The generated struct is named after the output: `NewService` gives `service`, `NewSvc` gives `svc`, and a name without a
 `New` prefix is used with its first letter lowered.
