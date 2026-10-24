@@ -3,6 +3,7 @@ package generate
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -173,6 +174,9 @@ func TestWrite_unchanged(t *testing.T) {
 }
 
 func TestWrite_applyError(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("permission bits are not enforced")
+	}
 	root := t.TempDir()
 	require.NoError(t, os.Chmod(root, 0o500))
 	t.Cleanup(func() { require.NoError(t, os.Chmod(root, 0o700)) })
@@ -226,7 +230,7 @@ func TestPlan(t *testing.T) {
 			name:    "unreadable path",
 			before:  map[string]string{"a": "file"},
 			files:   []render.File{{Path: "a/x_gen.go", Content: []byte(generated)}},
-			wantErr: "not a directory",
+			wantErr: "x_gen.go",
 		},
 	}
 	for _, tc := range tests {
