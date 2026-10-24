@@ -232,6 +232,9 @@ providers for everything else. `NewStagingState` does the same with `internal/pr
 The same works for a single output: add `provider` to override a few dependencies and keep the rest shared.
 
 ```yaml
+prefix: New
+providers:
+  - internal/providers
 targets:
   - package: internal/cache
     interface: Cache
@@ -282,7 +285,9 @@ targets:
     interface: State
     output:
       - name: NewProdState
+        filename: prod_gen.go
       - name: NewStagingState
+        filename: staging_gen.go
         test: false       # no test double for this one
 ```
 
@@ -313,6 +318,11 @@ For completion, inline docs and validation in your editor, point the YAML langua
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/benipranata/tack/main/tack.schema.json
 prefix: New
+providers:
+  - internal/providers
+targets:
+  - package: internal/app
+    interface: Service
 ```
 
 All package paths are relative to your module root. `./internal/app/` and `internal/app` mean the same thing.
