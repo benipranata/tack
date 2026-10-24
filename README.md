@@ -1,5 +1,7 @@
 # tack
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/benipranata/tack/cmd/tack.svg)](https://pkg.go.dev/github.com/benipranata/tack/cmd/tack)
+
 **Dependency wiring in plain Go, generated from one small config file.**
 
 You already write the functions that create your database, your logger, your cache.
