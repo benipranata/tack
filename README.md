@@ -303,6 +303,14 @@ targets:                      # at least one
         test: true            # optional; overrides the global test setting
 ```
 
+For completion, inline docs and validation in your editor, point the YAML language server at the
+[JSON Schema](tack.schema.json) with a comment on the first line of `tack.yaml`:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/benipranata/tack/main/tack.schema.json
+prefix: New
+```
+
 All package paths are relative to your module root. `./internal/app/` and `internal/app` mean the same thing.
 Absolute paths and paths that leave the module (`../x`) are rejected. Unknown keys are rejected too, so a
 typo fails loudly instead of being ignored.

@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/benipranata/tack/main/tack.schema.json",
+  "title": "tack.yaml",
+  "description": "Configuration for tack, which generates dependency wiring in plain Go.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["targets"],
+  "properties": {
+    "prefix": {
+      "description": "Prepended to the interface name to form the generated function name, so prefix New and interface Service give NewService. Without a prefix the name is the interface name, which needs an output name or a different output package.",
+      "type": "string",
+      "examples": ["New"]
+    },
+    "test": {
+      "description": "Also generate a test double next to each constructor. An output can override this.",
+      "type": "boolean",
+      "default": false
+    },
+    "providers": {
+      "description": "Packages searched for providers, relative to the module root. Shared by every output.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/packagePath" },
+      "examples": [["internal/providers"]]
+    },
+    "targets": {
+      "description": "The interfaces to generate constructors for.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/target" }
+    }
+  },
+  "definitions": {
+    "packagePath": {
+      "description": "A package directory relative to the module root. Absolute paths and paths that leave the module are rejected.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/|\\.\\.(/|$))",
+      "examples": ["internal/app"]
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "target": {
+      "description": "An interface whose methods each name a dependency by return type.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "interface"],
+      "properties": {
+        "package": {
+          "description": "The package that holds the interface.",
+          "$ref": "#/definitions/packagePath"
+        },
+        "interface": {
+          "description": "The interface name. Every method must take no arguments and return one value.",
+          "$ref": "#/definitions/identifier",
+          "examples": ["Service"]
+        },
+        "output": {
+          "description": "What to generate. Defaults to one output next to the interface. Give several to build more than one implementation.",
+          "type": "array",
+          "items": { "$ref": "#/definitions/output" }
+        }
+      }
+    },
+    "output": {
+      "description": "One generated constructor.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "The constructor name. Defaults to the prefix plus the interface name, and it must not equal the interface name when the output is in the same package.",
+          "$ref": "#/definitions/identifier",
+          "examples": ["NewService"]
+        },
+        "package": {
+          "description": "The package to write into. Defaults to the target's package, and the directory may not exist yet.",
+          "$ref": "#/definitions/packagePath"
+        },
+        "filename": {
+          "description": "The generated file name. Defaults to the lowercase interface name plus _gen.go.",
+          "type": "string",
+          "pattern": "^(?!.*_test\\.go$)[^/\\\\]+\\.go$",
+          "examples": ["service_gen.go"]
+        },
+        "provider": {
+          "description": "A package searched for providers before the global ones, to override a few dependencies and keep the rest shared.",
+          "$ref": "#/definitions/packagePath"
+        },
+        "test": {
+          "description": "Overrides the global test setting for this output.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
