@@ -1,5 +1,5 @@
-github.com/benipranata/goldie v0.0.0-20261023201007-9a68f7b0666e h1:R6lkIqQGC1cyWykaqIvBOvgOPK9EbwyntKwMgCTTIbA=
-github.com/benipranata/goldie v0.0.0-20261023201007-9a68f7b0666e/go.mod h1:SUrc5PtnRme3QDP/DIpmnxBDnglD5uHt2zhqhjnUtdY=
+github.com/benipranata/goldie v1.0.0 h1:E96EeIi4FvIk/XGax21XFvS+hzF4hcV+1Hua/PwGgc4=
+github.com/benipranata/goldie v1.0.0/go.mod h1:SUrc5PtnRme3QDP/DIpmnxBDnglD5uHt2zhqhjnUtdY=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
