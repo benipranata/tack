@@ -62,6 +62,8 @@ func writeModule(t *testing.T, files map[string]string) string {
 	return root
 }
 
+func ptr[T any](v T) *T { return &v }
+
 func typeString(t types.Type) string {
 	return types.TypeString(t, func(p *types.Package) string { return p.Name() })
 }

@@ -45,6 +45,10 @@ func TestLoad(t *testing.T) {
 	target := func(outs ...config.Output) config.Target {
 		return config.Target{Package: "svc", Interface: "Service", Outputs: outs}
 	}
+	withTest := func(o Output) Output {
+		o.Test = true
+		return o
+	}
 	named := func(o Output, name, filename string) Output {
 		o.Name, o.Filename = name, filename
 		return o
@@ -88,6 +92,18 @@ func TestLoad(t *testing.T) {
 				config.Output{Name: "NewService", Package: "svc", Filename: "service_gen.go", Provider: "special"},
 			)}},
 			want: []Output{output(svc, "special", "special")},
+		},
+		{
+			name:  "test double setting is carried to the output",
+			files: map[string]string{"svc/svc.go": serviceSrc, "global/g.go": providerFile("global")},
+			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{target(
+				config.Output{Name: "NewService", Package: "svc", Filename: "service_gen.go", Test: ptr(true)},
+				config.Output{Name: "NewOther", Package: "svc", Filename: "other_gen.go", Test: ptr(false)},
+			)}},
+			want: []Output{
+				withTest(output(svc, "global", "global")),
+				named(output(svc, "global", "global"), "NewOther", "other_gen.go"),
+			},
 		},
 		{
 			name: "each output of one target uses its own provider",

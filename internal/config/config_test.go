@@ -29,7 +29,32 @@ targets:
 				Targets: []Target{{
 					Package:   "cache",
 					Interface: "Redis",
-					Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go"}},
+					Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
+				}},
+			},
+		},
+		{
+			name: "test setting is global with an output override",
+			in: `
+test: true
+targets:
+  - package: a
+    interface: A
+    output:
+      - name: NewA
+      - name: Other
+        filename: other_gen.go
+        test: false
+`,
+			want: &Config{
+				Test: true,
+				Targets: []Target{{
+					Package:   "a",
+					Interface: "A",
+					Outputs: []Output{
+						{Name: "NewA", Package: "a", Filename: "a_gen.go", Test: ptr(true)},
+						{Name: "Other", Package: "a", Filename: "other_gen.go", Test: ptr(false)},
+					},
 				}},
 			},
 		},
@@ -95,7 +120,7 @@ targets:
 				Targets: []Target{{
 					Package:   "a",
 					Interface: "A",
-					Outputs:   []Output{{Name: "NewA", Package: "a", Filename: "a_gen.go"}},
+					Outputs:   []Output{{Name: "NewA", Package: "a", Filename: "a_gen.go", Test: ptr(false)}},
 				}},
 			},
 		},
@@ -146,9 +171,27 @@ func TestResolveConfig(t *testing.T) {
 				Targets: []Target{{
 					Package:   "cache",
 					Interface: "Redis",
-					Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go"}},
+					Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
 				}},
 			},
+		},
+		{
+			name: "global test setting reaches every output",
+			in:   Config{Prefix: "New", Test: true, Targets: []Target{redis}},
+			want: Config{
+				Prefix: "New",
+				Test:   true,
+				Targets: []Target{{
+					Package:   "cache",
+					Interface: "Redis",
+					Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(true)}},
+				}},
+			},
+		},
+		{
+			name:    "test double names count as duplicates",
+			in:      Config{Prefix: "New", Test: true, Targets: []Target{redis, {Package: "cache", Interface: "RedisTest"}}},
+			wantErr: []string{`targets[1].output[0].name: "NewRedisTest" already declared by targets[0].output[0]`},
 		},
 		{
 			name:    "no targets",
@@ -199,6 +242,7 @@ func TestResolveTarget(t *testing.T) {
 		name    string
 		in      Target
 		prefix  string
+		test    bool
 		want    Target
 		wantErr []string
 	}{
@@ -209,7 +253,18 @@ func TestResolveTarget(t *testing.T) {
 			want: Target{
 				Package:   "cache",
 				Interface: "Redis",
-				Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go"}},
+				Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
+			},
+		},
+		{
+			name:   "global test setting reaches the default output",
+			in:     Target{Package: "cache", Interface: "Redis"},
+			prefix: "New",
+			test:   true,
+			want: Target{
+				Package:   "cache",
+				Interface: "Redis",
+				Outputs:   []Output{{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(true)}},
 			},
 		},
 		{
@@ -222,7 +277,7 @@ func TestResolveTarget(t *testing.T) {
 			want: Target{
 				Package:   "cache",
 				Interface: "Redis",
-				Outputs:   []Output{{Name: "Open", Package: "wire", Filename: "open_gen.go"}},
+				Outputs:   []Output{{Name: "Open", Package: "wire", Filename: "open_gen.go", Test: ptr(false)}},
 			},
 		},
 		{
@@ -255,7 +310,7 @@ func TestResolveTarget(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.in
-			err := resolveTarget(&got, tc.prefix, "targets[0]")
+			err := resolveTarget(&got, tc.prefix, tc.test, "targets[0]")
 			if tc.wantErr != nil {
 				require.Error(t, err)
 				for _, w := range tc.wantErr {
@@ -276,6 +331,7 @@ func TestResolveOutput(t *testing.T) {
 		name    string
 		in      Output
 		prefix  string
+		test    bool
 		want    Output
 		wantErr []string
 	}{
@@ -283,12 +339,32 @@ func TestResolveOutput(t *testing.T) {
 			name:   "all defaults",
 			in:     Output{},
 			prefix: "New",
-			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go"},
+			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)},
+		},
+		{
+			name:   "inherits the global test setting",
+			in:     Output{},
+			prefix: "New",
+			test:   true,
+			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(true)},
+		},
+		{
+			name:   "turns the global test setting off",
+			in:     Output{Test: ptr(false)},
+			prefix: "New",
+			test:   true,
+			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)},
+		},
+		{
+			name:   "turns the test setting on over a global off",
+			in:     Output{Test: ptr(true)},
+			prefix: "New",
+			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(true)},
 		},
 		{
 			name: "explicit values are kept, paths normalised",
 			in:   Output{Name: "Open", Package: "./wire/", Filename: "open_gen.go", Provider: "./p/"},
-			want: Output{Name: "Open", Package: "wire", Filename: "open_gen.go", Provider: "p"},
+			want: Output{Name: "Open", Package: "wire", Filename: "open_gen.go", Provider: "p", Test: ptr(false)},
 		},
 		{
 			name:    "invalid provider",
@@ -319,7 +395,7 @@ func TestResolveOutput(t *testing.T) {
 		{
 			name: "same name as the interface is fine in another package",
 			in:   Output{Package: "wire"},
-			want: Output{Name: "Redis", Package: "wire", Filename: "redis_gen.go"},
+			want: Output{Name: "Redis", Package: "wire", Filename: "redis_gen.go", Test: ptr(false)},
 		},
 		{
 			name:    "filename is a path",
@@ -341,7 +417,7 @@ func TestResolveOutput(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.in
-			err := resolveOutput(&got, &redis, tc.prefix, "o[0]")
+			err := resolveOutput(&got, &redis, tc.prefix, tc.test, "o[0]")
 			if tc.wantErr != nil {
 				require.Error(t, err)
 				for _, w := range tc.wantErr {
@@ -357,7 +433,7 @@ func TestResolveOutput(t *testing.T) {
 
 func TestCheckDuplicates(t *testing.T) {
 	out := func(pkg, name, file string) []Output {
-		return []Output{{Name: name, Package: pkg, Filename: file}}
+		return []Output{{Name: name, Package: pkg, Filename: file, Test: ptr(false)}}
 	}
 
 	tests := []struct {
@@ -401,13 +477,47 @@ func TestCheckDuplicates(t *testing.T) {
 		{
 			name: "duplicates within one target",
 			in: []Target{{Outputs: []Output{
-				{Name: "New", Package: "a", Filename: "gen.go"},
-				{Name: "New", Package: "a", Filename: "gen.go"},
+				{Name: "New", Package: "a", Filename: "gen.go", Test: ptr(false)},
+				{Name: "New", Package: "a", Filename: "gen.go", Test: ptr(false)},
 			}}},
 			wantErr: []string{
 				`targets[0].output[1].name: "New" already declared by targets[0].output[0]`,
 				`targets[0].output[1].filename: "gen.go" already written by targets[0].output[0]`,
 			},
+		},
+		{
+			name: "test double names and file are reserved when test is on",
+			in: []Target{{Outputs: []Output{
+				{Name: "New", Package: "a", Filename: "x_gen.go", Test: ptr(true)},
+				{Name: "NewTest", Package: "a", Filename: "x_test_gen.go", Test: ptr(false)},
+			}}},
+			wantErr: []string{
+				`targets[0].output[1].name: "NewTest" already declared by targets[0].output[0]`,
+				`targets[0].output[1].filename: "x_test_gen.go" already written by targets[0].output[0]`,
+			},
+		},
+		{
+			name: "test double fields struct is reserved when test is on",
+			in: []Target{{Outputs: []Output{
+				{Name: "New", Package: "a", Filename: "x_gen.go", Test: ptr(true)},
+				{Name: "NewTestFields", Package: "a", Filename: "y_gen.go", Test: ptr(false)},
+			}}},
+			wantErr: []string{`targets[0].output[1].name: "NewTestFields" already declared by targets[0].output[0]`},
+		},
+		{
+			name: "name equal to another output's test constructor, both with test on",
+			in: []Target{{Outputs: []Output{
+				{Name: "New", Package: "a", Filename: "x_gen.go", Test: ptr(true)},
+				{Name: "NewTest", Package: "a", Filename: "y_gen.go", Test: ptr(true)},
+			}}},
+			wantErr: []string{`targets[0].output[1].name: "NewTest" already declared by targets[0].output[0]`},
+		},
+		{
+			name: "nothing is reserved when test is off",
+			in: []Target{{Outputs: []Output{
+				{Name: "New", Package: "a", Filename: "x_gen.go", Test: ptr(false)},
+				{Name: "NewTest", Package: "a", Filename: "x_test_gen.go", Test: ptr(false)},
+			}}},
 		},
 	}
 
@@ -422,6 +532,58 @@ func TestCheckDuplicates(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDoubleName(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "exported", in: "NewRedis", want: "NewRedisTest"},
+		{name: "unexported", in: "newRedis", want: "newRedisTest"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, DoubleName(tc.in))
+		})
+	}
+}
+
+func TestDoubleFields(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "exported", in: "NewRedis", want: "NewRedisTestFields"},
+		{name: "unexported", in: "newRedis", want: "newRedisTestFields"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, DoubleFields(tc.in))
+		})
+	}
+}
+
+func TestDoubleFilename(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "default generated name", in: "service_gen.go", want: "service_test_gen.go"},
+		{name: "custom name without the gen suffix", in: "service.go", want: "service_test_gen.go"},
+		{name: "gen only in the middle", in: "gen_service.go", want: "gen_service_test_gen.go"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, DoubleFilename(tc.in))
 		})
 	}
 }

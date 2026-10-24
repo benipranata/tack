@@ -52,6 +52,7 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 				Target:    newPackage(pkgs, t.Package, target.Module.Path),
 				Interface: t.Interface,
 				Methods:   methods,
+				Test:      o.Test != nil && *o.Test,
 			})
 		}
 	}

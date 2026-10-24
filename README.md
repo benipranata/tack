@@ -185,10 +185,53 @@ targets:
       - provider: internal/providers/redis
 ```
 
+## Testing
+
+Turn on `test` and tack writes a test double next to each constructor, so a fake is a one-line swap.
+
+```yaml
+prefix: New
+test: true
+providers:
+  - internal/providers
+targets:
+  - package: internal/app
+    interface: Service
+```
+
+tack writes `internal/app/service_test_gen.go` with a fields struct and a constructor.
+Every method of the interface becomes a field:
+
+```go
+svc := app.NewServiceTest(t, app.NewServiceTestFields{
+	DB:     fakeDB,
+	Logger: slog.Default(),
+})
+```
+
+Forget a dependency and the test fails right away, naming the missing field.
+
+`test` is off by default. Set it once at the top to cover every output, or on a single output to
+override the global setting either way:
+
+```yaml
+test: true
+targets:
+  - package: internal/state
+    interface: State
+    output:
+      - name: NewProdState
+      - name: NewStagingState
+        test: false       # no test double for this one
+```
+
+Switch `test` off again and tack removes the generated test file for you.
+
 ## Config reference
 
 ```yaml
 prefix: New                   # optional; the generated function is prefix + interface (NewService)
+test: false                   # optional; also generate test doubles, default false
 providers:                    # optional; packages searched for providers
   - internal/providers
 targets:                      # at least one
@@ -199,6 +242,7 @@ targets:                      # at least one
         package: internal/app # optional; defaults to the target's package
         filename: service_gen.go  # optional; defaults to <lowercase interface>_gen.go
         provider: internal/other  # optional; searched before the global providers
+        test: true            # optional; overrides the global test setting
 ```
 
 All package paths are relative to your module root. `./internal/app/` and `internal/app` mean the same thing.

@@ -30,4 +30,6 @@ type Output struct {
 	Target    Package
 	Interface string
 	Methods   []Method
+	// Test reports whether the output also gets a test double.
+	Test bool
 }

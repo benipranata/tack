@@ -63,7 +63,7 @@ func resolveConfig(c *Config) error {
 	}
 	for i := range c.Targets {
 		at := fmt.Sprintf("targets[%d]", i)
-		errs = append(errs, resolveTarget(&c.Targets[i], c.Prefix, at))
+		errs = append(errs, resolveTarget(&c.Targets[i], c.Prefix, c.Test, at))
 	}
 
 	// Unresolved outputs would look like duplicates of each other.
@@ -73,7 +73,7 @@ func resolveConfig(c *Config) error {
 	return checkDuplicates(c.Targets)
 }
 
-func resolveTarget(t *Target, prefix, at string) error {
+func resolveTarget(t *Target, prefix string, test bool, at string) error {
 	var errs []error
 
 	pkg, err := cleanPath(t.Package)
@@ -98,13 +98,17 @@ func resolveTarget(t *Target, prefix, at string) error {
 	}
 	for i := range t.Outputs {
 		at := fmt.Sprintf("%s.output[%d]", at, i)
-		errs = append(errs, resolveOutput(&t.Outputs[i], t, prefix, at))
+		errs = append(errs, resolveOutput(&t.Outputs[i], t, prefix, test, at))
 	}
 	return errors.Join(errs...)
 }
 
-func resolveOutput(o *Output, t *Target, prefix, at string) error {
+func resolveOutput(o *Output, t *Target, prefix string, test bool, at string) error {
 	var errs []error
+
+	if o.Test == nil {
+		o.Test = &test
+	}
 
 	if o.Package == "" {
 		o.Package = t.Package
@@ -157,18 +161,43 @@ func checkDuplicates(targets []Target) error {
 		for j, o := range t.Outputs {
 			at := fmt.Sprintf("targets[%d].output[%d]", i, j)
 
-			if prev, ok := funcs[key{o.Package, o.Name}]; ok {
-				errs = append(errs, fmt.Errorf("%s.name: %q already declared by %s", at, o.Name, prev))
+			names, filenames := []string{o.Name}, []string{o.Filename}
+			if *o.Test {
+				names = append(names, DoubleName(o.Name), DoubleFields(o.Name))
+				filenames = append(filenames, DoubleFilename(o.Filename))
 			}
-			funcs[key{o.Package, o.Name}] = at
 
-			if prev, ok := files[key{o.Package, o.Filename}]; ok {
-				errs = append(errs, fmt.Errorf("%s.filename: %q already written by %s", at, o.Filename, prev))
+			for _, name := range names {
+				if prev, ok := funcs[key{o.Package, name}]; ok {
+					errs = append(errs, fmt.Errorf("%s.name: %q already declared by %s", at, name, prev))
+				}
+				funcs[key{o.Package, name}] = at
 			}
-			files[key{o.Package, o.Filename}] = at
+			for _, filename := range filenames {
+				if prev, ok := files[key{o.Package, filename}]; ok {
+					errs = append(errs, fmt.Errorf("%s.filename: %q already written by %s", at, filename, prev))
+				}
+				files[key{o.Package, filename}] = at
+			}
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// DoubleName is the test constructor generated for an output named name.
+func DoubleName(name string) string {
+	return name + "Test"
+}
+
+// DoubleFields is the struct that carries the fakes into the test constructor.
+func DoubleFields(name string) string {
+	return name + "TestFields"
+}
+
+// DoubleFilename is the file holding the test double: service_gen.go gives service_test_gen.go.
+func DoubleFilename(filename string) string {
+	stem := strings.TrimSuffix(strings.TrimSuffix(filename, ".go"), "_gen")
+	return stem + "_test_gen.go"
 }
 
 // defaultName keeps the constructor unexported for an unexported interface: redis gives newRedis.
