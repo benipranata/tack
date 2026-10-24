@@ -40,6 +40,13 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 		}
 
 		for j, o := range t.Outputs {
+			outPkg := newPackage(pkgs, o.Package, target.Module.Path)
+			if bad := checkImplementable(wants, outPkg.Path); len(bad) > 0 {
+				for _, e := range bad {
+					errs = append(errs, fmt.Errorf("%s.output[%d].package: %w", at, j, e))
+				}
+				continue
+			}
 			methods, err := resolveMethods(providerLayers(cfg, o, pkgs), wants)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("%s.output[%d]: %w", at, j, err))
@@ -48,7 +55,7 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 			outs = append(outs, Output{
 				Name:      o.Name,
 				Filename:  o.Filename,
-				Package:   newPackage(pkgs, o.Package, target.Module.Path),
+				Package:   outPkg,
 				Target:    newPackage(pkgs, t.Package, target.Module.Path),
 				Interface: t.Interface,
 				Methods:   methods,

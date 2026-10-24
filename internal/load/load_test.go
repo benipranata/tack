@@ -182,6 +182,32 @@ func TestLoad(t *testing.T) {
 			wantErr: []string{"targets[0].output[0]: Logger(): *log.Logger is provided by a.ProvideLogger, b.ProvideLogger"},
 		},
 		{
+			name: "unexported method in the interface package",
+			files: map[string]string{
+				"svc/svc.go": "package svc\n\nimport \"log\"\n\ntype Service interface{ logger() *log.Logger }\n",
+				"g/g.go":     providerFile("g"),
+			},
+			cfg: config.Config{Providers: []string{"g"}, Targets: []config.Target{target(out)}},
+			want: []Output{func() Output {
+				o := output(svc, "g", "g")
+				o.Methods[0].Name = "logger"
+				return o
+			}()},
+		},
+		{
+			name: "unexported method cannot be implemented in another package",
+			files: map[string]string{
+				"svc/svc.go": "package svc\n\nimport \"log\"\n\ntype Service interface{ logger() *log.Logger }\n",
+				"g/g.go":     providerFile("g"),
+			},
+			cfg: config.Config{Providers: []string{"g"}, Targets: []config.Target{target(
+				config.Output{Name: "NewService", Package: "svc/prod", Filename: "service_gen.go"},
+			)}},
+			wantErr: []string{
+				"targets[0].output[0].package: logger(): unexported, so it can only be implemented in package example.com/app/svc",
+			},
+		},
+		{
 			name:    "missing provider",
 			files:   map[string]string{"svc/svc.go": serviceSrc},
 			cfg:     config.Config{Targets: []config.Target{target(out)}},

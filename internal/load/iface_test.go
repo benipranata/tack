@@ -119,3 +119,77 @@ type Service interface {
 		})
 	}
 }
+
+func TestInterfaceMethods_local(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want map[string]string
+	}{
+		{
+			name: "exported methods can be implemented anywhere",
+			src:  "package x\n\ntype Service interface{ Port() int }\n",
+			want: map[string]string{"Port": ""},
+		},
+		{
+			name: "unexported methods belong to their package",
+			src:  "package x\n\ntype Service interface{ port() int }\n",
+			want: map[string]string{"port": testModule + "/x"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := interfaceMethods(typecheck(t, tc.src), "Service")
+			require.NoError(t, err)
+
+			local := map[string]string{}
+			for _, m := range got {
+				local[m.Name] = m.local
+			}
+			require.Equal(t, tc.want, local)
+		})
+	}
+}
+
+func TestCheckImplementable(t *testing.T) {
+	methods := []Method{
+		{Name: "Port"},
+		{Name: "port", local: "example.com/app/x"},
+		{Name: "host", local: "example.com/app/y"},
+	}
+	tests := []struct {
+		name    string
+		pkg     string
+		wantErr []string
+	}{
+		{
+			name: "the declaring package of one method",
+			pkg:  "example.com/app/x",
+			wantErr: []string{
+				"host(): unexported, so it can only be implemented in package example.com/app/y",
+			},
+		},
+		{
+			name: "another package",
+			pkg:  "example.com/app/z",
+			wantErr: []string{
+				"port(): unexported, so it can only be implemented in package example.com/app/x",
+				"host(): unexported, so it can only be implemented in package example.com/app/y",
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var got []string
+			for _, err := range checkImplementable(methods, tc.pkg) {
+				got = append(got, err.Error())
+			}
+
+			require.Equal(t, tc.wantErr, got)
+		})
+	}
+
+	t.Run("nothing to report", func(t *testing.T) {
+		require.Empty(t, checkImplementable(methods[:1], "example.com/app/z"))
+	})
+}

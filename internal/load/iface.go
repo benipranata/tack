@@ -26,10 +26,25 @@ func interfaceMethods(pkg *types.Package, name string) ([]Method, error) {
 			errs = append(errs, fmt.Errorf("method %s must take no arguments and return one value", m.Name()))
 			continue
 		}
-		methods = append(methods, Method{Name: m.Name(), Type: sig.Results().At(0).Type()})
+		method := Method{Name: m.Name(), Type: sig.Results().At(0).Type()}
+		if !m.Exported() {
+			method.local = m.Pkg().Path()
+		}
+		methods = append(methods, method)
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
 	return methods, nil
+}
+
+// checkImplementable reports each unexported method that a type in pkgPath cannot implement.
+func checkImplementable(methods []Method, pkgPath string) []error {
+	var errs []error
+	for _, m := range methods {
+		if m.local != "" && m.local != pkgPath {
+			errs = append(errs, fmt.Errorf("%s(): unexported, so it can only be implemented in package %s", m.Name, m.local))
+		}
+	}
+	return errs
 }

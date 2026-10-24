@@ -20,6 +20,8 @@ type Method struct {
 	Name     string
 	Type     types.Type
 	Provider Provider
+	// local is the import path of the package that declares an unexported method, which alone can implement it.
+	local string
 }
 
 // Output is one generated file with every method already bound to a provider.

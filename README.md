@@ -380,6 +380,8 @@ A common setup is to run it from `go generate`:
 - A type is matched exactly. A provider returning `*sql.DB` does not satisfy a method returning `sql.DBTX`.
 - Within one layer, only one provider may return a given type. Use `provider` on an output to pick one.
 - Providers must not be generic.
+- An interface with an unexported method can only be implemented in its own package, so an output in another
+  package is rejected.
 
 ## Development
 
