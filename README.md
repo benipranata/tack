@@ -15,7 +15,8 @@ that ties everything together. The result is ordinary Go you can read top to bot
 - **Deterministic.** Same config and source, same output. Review it like any other code.
 
 > **Status: early.** Config parsing and validation, `tack.yaml` discovery, provider matching, code
-> generation and the `tack` command are implemented. It has not been released yet.
+> generation and the `tack` command are implemented. No version is tagged yet, so `@latest` installs the newest
+> commit of `main`.
 
 ## Contents
 
