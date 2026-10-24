@@ -149,14 +149,14 @@ func TestRun_errors(t *testing.T) {
 			wantErr: "field unknown not found",
 		},
 		{
-			name: "config below the module root is discovered",
-			files: map[string]string{"go.mod": "module " + module + "\n", "sub/tack.yaml": quickstartConfig},
+			name:    "config below the module root is discovered",
+			files:   map[string]string{"go.mod": "module " + module + "\n", "sub/tack.yaml": quickstartConfig},
 			dir:     "sub",
 			wantErr: "the config must be in the module root, next to go.mod",
 		},
 		{
-			name: "explicit config below the module root",
-			files: map[string]string{"go.mod": "module " + module + "\n", "sub/tack.yaml": quickstartConfig},
+			name:    "explicit config below the module root",
+			files:   map[string]string{"go.mod": "module " + module + "\n", "sub/tack.yaml": quickstartConfig},
 			config:  "sub/tack.yaml",
 			wantErr: "the config must be in the module root, next to go.mod",
 		},
