@@ -8,9 +8,14 @@
   "required": ["targets"],
   "properties": {
     "prefix": {
-      "description": "Prepended to the interface name to form the generated function name, so prefix New and interface Service give NewService. Without a prefix the name is the interface name, which needs an output name or a different output package.",
+      "description": "Prepended to the interface name to form the generated function name, so prefix New and interface Service give NewService. Without a prefix or a suffix the name is the interface name, which needs an output name or a different output package.",
       "type": "string",
       "examples": ["New"]
+    },
+    "suffix": {
+      "description": "Appended to the interface name to form the generated function name, so suffix State and interface Redis give RedisState, and RedisStateTest for its test double. It combines with prefix: NewRedisState.",
+      "type": "string",
+      "examples": ["State"]
     },
     "test": {
       "description": "Also generate a test double next to each constructor. An output can override this.",
@@ -70,7 +75,7 @@
       "additionalProperties": false,
       "properties": {
         "name": {
-          "description": "The constructor name. Defaults to the prefix plus the interface name, and it must not equal the interface name when the output is in the same package.",
+          "description": "The constructor name. Defaults to the prefix, the interface name and the suffix, and it must not equal the interface name when the output is in the same package.",
           "$ref": "#/definitions/identifier",
           "examples": ["NewService"]
         },

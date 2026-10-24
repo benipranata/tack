@@ -34,6 +34,23 @@ targets:
 			},
 		},
 		{
+			name: "suffix names the constructor",
+			in: `
+suffix: State
+targets:
+  - package: cache
+    interface: Redis
+`,
+			want: &Config{
+				Suffix: "State",
+				Targets: []Target{{
+					Package:   "cache",
+					Interface: "Redis",
+					Outputs:   []Output{{Name: "RedisState", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
+				}},
+			},
+		},
+		{
 			name: "no prefix keeps the interface name",
 			in: `
 targets:
@@ -193,6 +210,26 @@ func TestResolveConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "prefix and suffix reach every target",
+			in:   Config{Prefix: "New", Suffix: "State", Targets: []Target{redis, {Package: "cache", Interface: "lru"}}},
+			want: Config{
+				Prefix: "New",
+				Suffix: "State",
+				Targets: []Target{
+					{
+						Package:   "cache",
+						Interface: "Redis",
+						Outputs:   []Output{{Name: "NewRedisState", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
+					},
+					{
+						Package:   "cache",
+						Interface: "lru",
+						Outputs:   []Output{{Name: "newLruState", Package: "cache", Filename: "lru_gen.go", Test: ptr(false)}},
+					},
+				},
+			},
+		},
+		{
 			name: "global test setting reaches every output",
 			in:   Config{Prefix: "New", Test: true, Targets: []Target{redis}},
 			want: Config{
@@ -259,10 +296,21 @@ func TestResolveTarget(t *testing.T) {
 		name    string
 		in      Target
 		prefix  string
+		suffix  string
 		test    bool
 		want    Target
 		wantErr []string
 	}{
+		{
+			name:   "suffix reaches the default name",
+			in:     Target{Package: "cache", Interface: "Redis"},
+			suffix: "State",
+			want: Target{
+				Package:   "cache",
+				Interface: "Redis",
+				Outputs:   []Output{{Name: "RedisState", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)}},
+			},
+		},
 		{
 			name:   "defaults one output",
 			in:     Target{Package: "./cache", Interface: "Redis"},
@@ -327,7 +375,7 @@ func TestResolveTarget(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.in
-			err := resolveTarget(&got, tc.prefix, tc.test, "targets[0]")
+			err := resolveTarget(&got, tc.prefix, tc.suffix, tc.test, "targets[0]")
 			if tc.wantErr != nil {
 				require.Error(t, err)
 				for _, w := range tc.wantErr {
@@ -348,6 +396,7 @@ func TestResolveOutput(t *testing.T) {
 		name    string
 		in      Output
 		prefix  string
+		suffix  string
 		test    bool
 		want    Output
 		wantErr []string
@@ -357,6 +406,26 @@ func TestResolveOutput(t *testing.T) {
 			in:     Output{},
 			prefix: "New",
 			want:   Output{Name: "NewRedis", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)},
+		},
+		{
+			name:   "prefix and suffix",
+			in:     Output{},
+			prefix: "New",
+			suffix: "State",
+			want:   Output{Name: "NewRedisState", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)},
+		},
+		{
+			name:   "suffix alone avoids the collision with the interface",
+			in:     Output{},
+			suffix: "State",
+			want:   Output{Name: "RedisState", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)},
+		},
+		{
+			name:   "an explicit name ignores prefix and suffix",
+			in:     Output{Name: "Make"},
+			prefix: "New",
+			suffix: "State",
+			want:   Output{Name: "Make", Package: "cache", Filename: "redis_gen.go", Test: ptr(false)},
 		},
 		{
 			name:   "inherits the global test setting",
@@ -434,7 +503,7 @@ func TestResolveOutput(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.in
-			err := resolveOutput(&got, &redis, tc.prefix, tc.test, "o[0]")
+			err := resolveOutput(&got, &redis, tc.prefix, tc.suffix, tc.test, "o[0]")
 			if tc.wantErr != nil {
 				require.Error(t, err)
 				for _, w := range tc.wantErr {
@@ -609,11 +678,16 @@ func TestDefaultName(t *testing.T) {
 	tests := []struct {
 		name   string
 		prefix string
+		suffix string
 		iface  string
 		want   string
 	}{
 		{name: "no prefix keeps the interface name", iface: "Redis", want: "Redis"},
 		{name: "no prefix keeps an unexported name", iface: "redis", want: "redis"},
+		{name: "suffix only", suffix: "State", iface: "Redis", want: "RedisState"},
+		{name: "suffix on an unexported interface", suffix: "State", iface: "redis", want: "redisState"},
+		{name: "prefix and suffix", prefix: "New", suffix: "State", iface: "Redis", want: "NewRedisState"},
+		{name: "prefix and suffix on an unexported interface", prefix: "New", suffix: "State", iface: "redis", want: "newRedisState"},
 		{name: "exported interface", prefix: "New", iface: "Redis", want: "NewRedis"},
 		{name: "unexported interface", prefix: "New", iface: "redis", want: "newRedis"},
 		{name: "lowercase prefix stays lowercase", prefix: "new", iface: "Redis", want: "newRedis"},
@@ -621,7 +695,7 @@ func TestDefaultName(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, defaultName(tc.prefix, tc.iface))
+			require.Equal(t, tc.want, defaultName(tc.prefix, tc.iface, tc.suffix))
 		})
 	}
 }

@@ -64,7 +64,7 @@ func resolveConfig(c *Config) error {
 	}
 	for i := range c.Targets {
 		at := fmt.Sprintf("targets[%d]", i)
-		errs = append(errs, resolveTarget(&c.Targets[i], c.Prefix, c.Test, at))
+		errs = append(errs, resolveTarget(&c.Targets[i], c.Prefix, c.Suffix, c.Test, at))
 	}
 
 	// Unresolved outputs would look like duplicates of each other.
@@ -74,7 +74,7 @@ func resolveConfig(c *Config) error {
 	return checkDuplicates(c.Targets)
 }
 
-func resolveTarget(t *Target, prefix string, test bool, at string) error {
+func resolveTarget(t *Target, prefix, suffix string, test bool, at string) error {
 	var errs []error
 
 	pkg, err := cleanPath(t.Package)
@@ -99,12 +99,12 @@ func resolveTarget(t *Target, prefix string, test bool, at string) error {
 	}
 	for i := range t.Outputs {
 		at := fmt.Sprintf("%s.output[%d]", at, i)
-		errs = append(errs, resolveOutput(&t.Outputs[i], t, prefix, test, at))
+		errs = append(errs, resolveOutput(&t.Outputs[i], t, prefix, suffix, test, at))
 	}
 	return errors.Join(errs...)
 }
 
-func resolveOutput(o *Output, t *Target, prefix string, test bool, at string) error {
+func resolveOutput(o *Output, t *Target, prefix, suffix string, test bool, at string) error {
 	var errs []error
 
 	if o.Test == nil {
@@ -130,13 +130,13 @@ func resolveOutput(o *Output, t *Target, prefix string, test bool, at string) er
 	}
 
 	if o.Name == "" {
-		o.Name = defaultName(prefix, t.Interface)
+		o.Name = defaultName(prefix, t.Interface, suffix)
 	}
 	switch {
 	case !token.IsIdentifier(o.Name):
 		errs = append(errs, fmt.Errorf("%s.name: %q is not a valid Go identifier", at, o.Name))
 	case o.Name == t.Interface && o.Package == t.Package:
-		errs = append(errs, fmt.Errorf("%s.name: %q collides with the interface; set a prefix or a name", at, o.Name))
+		errs = append(errs, fmt.Errorf("%s.name: %q collides with the interface; set a prefix, a suffix or a name", at, o.Name))
 	}
 
 	if o.Filename == "" {
@@ -201,15 +201,15 @@ func DoubleFilename(filename string) string {
 	return stem + "_test_gen.go"
 }
 
-// defaultName keeps the constructor unexported for an unexported interface: redis gives newRedis.
-func defaultName(prefix, iface string) string {
+// defaultName is prefix + interface + suffix, and stays unexported for an unexported interface: redis gives newRedis.
+func defaultName(prefix, iface, suffix string) string {
 	if prefix == "" {
-		return iface
+		return iface + suffix
 	}
 	if r, _ := utf8.DecodeRuneInString(iface); !unicode.IsUpper(r) {
 		prefix = mapFirst(prefix, unicode.ToLower)
 	}
-	return prefix + mapFirst(iface, unicode.ToUpper)
+	return prefix + mapFirst(iface, unicode.ToUpper) + suffix
 }
 
 func mapFirst(s string, f func(rune) rune) string {

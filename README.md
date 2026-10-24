@@ -288,7 +288,8 @@ Switch `test` off again and tack removes the generated test file for you.
 ## Config reference
 
 ```yaml
-prefix: New                   # optional; the generated function is prefix + interface (NewService)
+prefix: New                   # optional; the generated function is prefix + interface + suffix (NewService)
+suffix: State                 # optional; appended to the interface name (RedisState, or NewRedisState with a prefix)
 test: false                   # optional; also generate test doubles, default false
 providers:                    # optional; packages searched for providers
   - internal/providers
@@ -319,12 +320,14 @@ typo fails loudly instead of being ignored.
 
 | Field | Default | Rule |
 | ----- | ------- | ---- |
-| `name` | `prefix` + interface | A valid Go identifier. With no `prefix` the default equals the interface name, which collides when the output is in the same package, so set a `prefix` or a `name`. |
+| `name` | `prefix` + interface + `suffix` | A valid Go identifier. With neither `prefix` nor `suffix` the default equals the interface name, which collides when the output is in the same package, so set a `prefix`, a `suffix` or a `name`. |
 | `package` | the target's package | The directory may not exist yet. |
 | `filename` | `<lowercase interface>_gen.go` | A file name, not a path. Must end in `.go` and not in `_test.go`. |
 | `test` | the global `test` | With `test` on, the output also claims `<name>Test`, `<name>TestFields`, and a `…_test_gen.go` file. |
 
-An unexported interface gets an unexported constructor: `redis` with `prefix: New` gives `newRedis`.
+An unexported interface gets an unexported constructor: `redis` with `prefix: New` gives `newRedis`, and with
+`suffix: State` gives `redisState`. The test double adds `Test` to the final name, so `suffix: State` on `Redis`
+gives `RedisState` and `RedisStateTest`.
 
 Within one package, no two outputs may share a name or a file, and that includes the test double names and files.
 
@@ -334,7 +337,7 @@ tack validates in two steps and reports all problems of a step together, each pr
 belongs to. First the config:
 
 ```text
-targets[0].output[0].name: "Service" collides with the interface; set a prefix or a name
+targets[0].output[0].name: "Service" collides with the interface; set a prefix, a suffix or a name
 targets[1].interface: required
 ```
 

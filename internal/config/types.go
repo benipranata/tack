@@ -2,6 +2,7 @@ package config
 
 type Config struct {
 	Prefix    string   `yaml:"prefix"`
+	Suffix    string   `yaml:"suffix"`
 	Test      bool     `yaml:"test"`
 	Providers []string `yaml:"providers"`
 	Targets   []Target `yaml:"targets"`
