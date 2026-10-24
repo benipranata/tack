@@ -63,3 +63,21 @@ func TestSchema(t *testing.T) {
 		})
 	}
 }
+
+// TestSchema_examples keeps the examples in the descriptions valid, so the schema never teaches a config that fails.
+func TestSchema_examples(t *testing.T) {
+	raw, err := os.ReadFile("../../tack.schema.json")
+	require.NoError(t, err)
+	var schema struct {
+		Description string `json:"description"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &schema))
+
+	_, example, found := strings.Cut(schema.Description, "Example: ")
+	require.True(t, found, "the root description needs an example")
+
+	cfg, err := Parse([]byte(example))
+
+	require.NoError(t, err)
+	require.Equal(t, "NewService", cfg.Targets[0].Outputs[0].Name)
+}
