@@ -141,6 +141,37 @@ func ProvideLogger(ctx context.Context) (*slog.Logger, func(), error) { return n
 `,
 			},
 		},
+		{
+			name: "unexported method in the output package",
+			config: `
+prefix: New
+providers:
+  - internal/providers
+targets:
+  - package: internal/app
+    interface: Service
+`,
+			files: map[string]string{
+				"internal/app/service.go": `package app
+
+import "log/slog"
+
+type Service interface {
+	logger() *slog.Logger
+	Logger() *slog.Logger
+}
+`,
+				"internal/providers/providers.go": `package providers
+
+import (
+	"context"
+	"log/slog"
+)
+
+func ProvideLogger(ctx context.Context) (*slog.Logger, func(), error) { return nil, nil, nil }
+`,
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

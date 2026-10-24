@@ -69,8 +69,14 @@ func newConstructor(out load.Output) constructor {
 }
 
 // fieldNames names the struct field of every method; the test double builds the same struct, so it must get the same names.
+// A field may not share a name with a method, which an unexported method such as logger would.
 func fieldNames(methods []load.Method) []string {
-	n := newNamer(false)
+	reserved := make([]string, len(methods))
+	for i, m := range methods {
+		reserved[i] = m.Name
+	}
+
+	n := newNamer(false, reserved...)
 	names := make([]string, len(methods))
 	for i, m := range methods {
 		names[i] = n.take(lowerName(m.Name))

@@ -32,6 +32,8 @@ func TestFieldNames(t *testing.T) {
 		{name: "same lower name", methods: []string{"DB", "Db"}, want: []string{"db", "db2"}},
 		{name: "keyword", methods: []string{"Type", "Func"}, want: []string{"type2", "func2"}},
 		{name: "predeclared is fine", methods: []string{"Len"}, want: []string{"len"}},
+		{name: "unexported method", methods: []string{"logger"}, want: []string{"logger2"}},
+		{name: "unexported method next to an exported one", methods: []string{"Logger", "logger"}, want: []string{"logger2", "logger3"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
