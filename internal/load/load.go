@@ -4,6 +4,7 @@ package load
 import (
 	"errors"
 	"fmt"
+	"go/token"
 	"os"
 	"path"
 	"path/filepath"
@@ -41,6 +42,10 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 
 		for j, o := range t.Outputs {
 			outPkg := newPackage(pkgs, o.Package, target.Module.Path)
+			if err := checkPackageName(outPkg); err != nil {
+				errs = append(errs, fmt.Errorf("%s.output[%d].package: %w", at, j, err))
+				continue
+			}
 			if bad := checkImplementable(wants, outPkg.Path); len(bad) > 0 {
 				for _, e := range bad {
 					errs = append(errs, fmt.Errorf("%s.output[%d].package: %w", at, j, e))
@@ -171,6 +176,15 @@ func requirePackage(pkgs map[string]*packages.Package, dir, at string) error {
 	}
 	if err := errors.Join(errs...); err != nil {
 		return fmt.Errorf("%s: %w", at, err)
+	}
+	return nil
+}
+
+// checkPackageName rejects an output directory that would give an invalid package clause, such as my-pkg.
+// An existing package already has a valid name; only one that does not exist yet takes its name from the directory.
+func checkPackageName(p Package) error {
+	if !token.IsIdentifier(p.Name) {
+		return fmt.Errorf("%q is not a valid Go package name (from directory %q)", p.Name, p.Dir)
 	}
 	return nil
 }

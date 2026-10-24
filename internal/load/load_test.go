@@ -158,6 +158,14 @@ func TestLoad(t *testing.T) {
 			want: []Output{output(pkgOf("svc/prod", "prod"), "global", "global")},
 		},
 		{
+			name:  "output directory that is not a package name",
+			files: map[string]string{"svc/svc.go": serviceSrc, "global/g.go": providerFile("global")},
+			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{
+				target(config.Output{Name: "NewService", Package: "svc/my-pkg", Filename: "service_gen.go"}),
+			}},
+			wantErr: []string{`targets[0].output[0].package: "my-pkg" is not a valid Go package name (from directory "svc/my-pkg")`},
+		},
+		{
 			name:  "a target with two outputs",
 			files: map[string]string{"svc/svc.go": serviceSrc, "global/g.go": providerFile("global")},
 			cfg: config.Config{Providers: []string{"global"}, Targets: []config.Target{
@@ -566,6 +574,33 @@ func TestPrefixed(t *testing.T) {
 
 			require.Equal(t, strings.Join(tc.want, "\n"), got.Error())
 			require.ErrorIs(t, got, a)
+		})
+	}
+}
+
+func TestCheckPackageName(t *testing.T) {
+	tests := []struct {
+		name    string
+		pkg     Package
+		wantErr string
+	}{
+		{name: "plain", pkg: Package{Dir: "internal/prod", Name: "prod"}},
+		{name: "underscore", pkg: Package{Dir: "internal/my_pkg", Name: "my_pkg"}},
+		{name: "hyphen", pkg: Package{Dir: "internal/my-pkg", Name: "my-pkg"}, wantErr: `"my-pkg" is not a valid Go package name (from directory "internal/my-pkg")`},
+		{name: "version suffix", pkg: Package{Dir: "internal/v2", Name: "v2"}},
+		{name: "leading digit", pkg: Package{Dir: "internal/2fa", Name: "2fa"}, wantErr: `"2fa" is not a valid Go package name`},
+		{name: "keyword", pkg: Package{Dir: "internal/type", Name: "type"}, wantErr: `"type" is not a valid Go package name`},
+		{name: "dotted", pkg: Package{Dir: "internal/a.b", Name: "a.b"}, wantErr: `"a.b" is not a valid Go package name`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkPackageName(tc.pkg)
+
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }

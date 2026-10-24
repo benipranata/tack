@@ -323,7 +323,7 @@ typo fails loudly instead of being ignored.
 | Field | Default | Rule |
 | ----- | ------- | ---- |
 | `name` | `prefix` + interface + `suffix` | A valid Go identifier. With neither `prefix` nor `suffix` the default equals the interface name, which collides when the output is in the same package, so set a `prefix`, a `suffix` or a `name`. |
-| `package` | the target's package | The directory may not exist yet. |
+| `package` | the target's package | The directory may not exist yet. Then its last element becomes the package name, so it must be a valid Go identifier (`prod`, not `my-pkg`). |
 | `filename` | `<lowercase interface>_gen.go` | A file name, not a path. Must end in `.go` and not in `_test.go`. |
 | `test` | the global `test` | With `test` on, the output also claims `<name>Test`, `<name>TestFields`, and a `…_test_gen.go` file. |
 
