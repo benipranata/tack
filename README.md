@@ -264,7 +264,9 @@ svc := app.NewServiceTest(t, app.NewServiceTestFields{
 })
 ```
 
-Forget a dependency and the test fails right away, naming the missing field.
+Forget a dependency and the test fails right away, naming the missing field. tack can only tell when the
+value is `nil`: pointers, interfaces, funcs, maps, slices and channels. A value type such as an `int` or a
+struct cannot be told apart from its zero value, so a forgotten one is not reported.
 
 The file name does not end in `_test.go`, on purpose: that way other packages can import the double
 in their own tests. It also means the double is compiled into the package, so it imports `testing`.
@@ -380,6 +382,7 @@ A common setup is to run it from `go generate`:
 - A type is matched exactly. A provider returning `*sql.DB` does not satisfy a method returning `sql.DBTX`.
 - Within one layer, only one provider may return a given type. Use `provider` on an output to pick one.
 - Providers must not be generic.
+- A test double reports a missing dependency only when its type can be `nil`.
 - An interface with an unexported method can only be implemented in its own package, so an output in another
   package is rejected.
 
