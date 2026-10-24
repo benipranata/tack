@@ -206,6 +206,10 @@ the output its own `provider` package.
 A function counts as a provider only if it is not generic and has exactly this shape:
 `func(context.Context) (T, func(), error)`.
 
+Methods that return the same type get the same value: the provider runs once and each of those methods returns
+that one instance. `Primary() *sql.DB` and `Replica() *sql.DB` share a single connection. To get two, give
+them different types, such as `type Replica struct{ *sql.DB }` with its own provider.
+
 ## Several implementations of one interface
 
 Give a target more than one output. Each gets its own name, package, file, and, if you want,
