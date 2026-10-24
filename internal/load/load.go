@@ -35,7 +35,7 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 		target := pkgs[t.Package]
 		wants, err := interfaceMethods(target.Types, t.Interface)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("%s.interface: %w", at, err))
+			errs = append(errs, prefixed(at+".interface", err))
 			continue
 		}
 
@@ -49,7 +49,7 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 			}
 			methods, err := resolveMethods(providerLayers(cfg, o, pkgs), wants)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("%s.output[%d]: %w", at, j, err))
+				errs = append(errs, prefixed(fmt.Sprintf("%s.output[%d]", at, j), err))
 				continue
 			}
 			outs = append(outs, Output{
@@ -67,6 +67,19 @@ func Load(root string, cfg *config.Config) ([]Output, error) {
 		return nil, err
 	}
 	return outs, nil
+}
+
+// prefixed puts prefix in front of every error of err; wrapping a joined error with %w would prefix only its first line.
+func prefixed(prefix string, err error) error {
+	joined, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		return fmt.Errorf("%s: %w", prefix, err)
+	}
+	var errs []error
+	for _, e := range joined.Unwrap() {
+		errs = append(errs, prefixed(prefix, e))
+	}
+	return errors.Join(errs...)
 }
 
 // packageDirs returns every package directory the config mentions, sorted and without duplicates.

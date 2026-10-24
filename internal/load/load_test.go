@@ -1,10 +1,12 @@
 package load
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,6 +14,18 @@ import (
 
 	"github.com/benipranata/tack/internal/config"
 )
+
+const twoMethodsSrc = `
+package svc
+
+import "log"
+
+type Service interface {
+	Logger() *log.Logger
+	Redis() *int
+	Port() int
+}
+`
 
 const serviceSrc = `
 package svc
@@ -212,6 +226,27 @@ func TestLoad(t *testing.T) {
 			files:   map[string]string{"svc/svc.go": serviceSrc},
 			cfg:     config.Config{Targets: []config.Target{target(out)}},
 			wantErr: []string{"targets[0].output[0]: Logger(): no provider returns *log.Logger"},
+		},
+		{
+			name:  "every unbound method carries the field path",
+			files: map[string]string{"svc/svc.go": twoMethodsSrc},
+			cfg:   config.Config{Targets: []config.Target{target(out)}},
+			wantErr: []string{
+				"targets[0].output[0]: Logger(): no provider returns *log.Logger",
+				"targets[0].output[0]: Port(): no provider returns int",
+				"targets[0].output[0]: Redis(): no provider returns *int",
+			},
+		},
+		{
+			name: "every bad method carries the field path",
+			files: map[string]string{
+				"svc/svc.go": "package svc\n\ntype Service interface {\n\tRun()\n\tPair() (int, error)\n}\n",
+			},
+			cfg: config.Config{Targets: []config.Target{target(out)}},
+			wantErr: []string{
+				"targets[0].interface: method Run must take no arguments and return one value",
+				"targets[0].interface: method Pair must take no arguments and return one value",
+			},
 		},
 		{
 			name:    "interface not found",
@@ -510,6 +545,27 @@ func TestNewPackage(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.want, newPackage(pkgs, tc.dir, testModule))
+		})
+	}
+}
+
+func TestPrefixed(t *testing.T) {
+	a, b, c := errors.New("a"), errors.New("b"), errors.New("c")
+	tests := []struct {
+		name string
+		in   error
+		want []string
+	}{
+		{name: "single error", in: a, want: []string{"p: a"}},
+		{name: "joined errors", in: errors.Join(a, b), want: []string{"p: a", "p: b"}},
+		{name: "nested joins", in: errors.Join(a, errors.Join(b, c)), want: []string{"p: a", "p: b", "p: c"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := prefixed("p", tc.in)
+
+			require.Equal(t, strings.Join(tc.want, "\n"), got.Error())
+			require.ErrorIs(t, got, a)
 		})
 	}
 }
