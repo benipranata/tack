@@ -400,6 +400,9 @@ A common setup is to run it from `go generate`:
 - Providers must not be generic.
 - The interface must not be generic. Name an instantiation instead: `type IntRepo = Repo[int]`.
 - A test double reports a missing dependency only when its type can be `nil`.
+- tack only writes the files the config names. If you remove an output, or change its `filename` or `package`,
+  the file it generated before stays where it is: delete it yourself. The one exception is the test double of an
+  output whose `test` setting you switch off.
 - An interface with an unexported method can only be implemented in its own package, so an output in another
   package is rejected.
 
