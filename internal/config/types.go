@@ -1,5 +1,6 @@
 package config
 
+// Config is a parsed tack.yaml; defaults are applied once it is parsed.
 type Config struct {
 	Prefix    string   `yaml:"prefix"`
 	Suffix    string   `yaml:"suffix"`
@@ -8,12 +9,14 @@ type Config struct {
 	Targets   []Target `yaml:"targets"`
 }
 
+// Target is an interface to generate constructors for.
 type Target struct {
 	Package   string   `yaml:"package"`
 	Interface string   `yaml:"interface"`
 	Outputs   []Output `yaml:"output"`
 }
 
+// Output is one generated constructor of a Target.
 type Output struct {
 	Name     string `yaml:"name"`
 	Package  string `yaml:"package"`

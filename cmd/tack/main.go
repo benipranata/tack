@@ -1,3 +1,15 @@
+// Command tack generates dependency wiring in plain Go.
+//
+// It reads tack.yaml from the module root, matches each method of the configured interfaces to a provider
+// function by return type, and writes a constructor that creates the values, cleans them up in reverse order
+// and returns the interface, optionally with a test double. The nearest tack.yaml above the working directory
+// is used unless -config names another.
+//
+// Usage:
+//
+//	tack [-config path/to/tack.yaml]
+//
+// The README describes the config, the provider rules and the errors.
 package main
 
 import (
