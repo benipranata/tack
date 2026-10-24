@@ -34,17 +34,14 @@ func Parse(data []byte) (*Config, error) {
 	return &cfg, nil
 }
 
-// Load reads and parses the config at file; parse errors are prefixed with the file name.
+// Load reads and parses the config at file. Parse errors are returned as they are: each already names its field,
+// and wrapping the joined errors would put the file name on the first line only.
 func Load(file string) (*Config, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := Parse(data)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", file, err)
-	}
-	return cfg, nil
+	return Parse(data)
 }
 
 func resolveConfig(c *Config) error {

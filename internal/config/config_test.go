@@ -140,6 +140,8 @@ func TestLoad(t *testing.T) {
 		content *string
 		want    *Config
 		wantErr string
+		// bare means the error must not mention the file path.
+		bare bool
 	}{
 		{
 			name: "valid file",
@@ -159,9 +161,16 @@ targets:
 			},
 		},
 		{
-			name:    "invalid file names the path",
+			name:    "empty file",
 			content: ptr(""),
-			wantErr: "tack.yaml: config is empty",
+			wantErr: "config is empty",
+			bare:    true,
+		},
+		{
+			name:    "every validation error starts with its field",
+			content: ptr("targets:\n  - package: a\n  - interface: B\n"),
+			wantErr: "targets[0].interface: required\ntargets[1].package: required",
+			bare:    true,
 		},
 		{
 			name:    "missing file",
@@ -179,6 +188,9 @@ targets:
 			got, err := Load(path)
 			if tc.wantErr != "" {
 				require.ErrorContains(t, err, tc.wantErr)
+				if tc.bare {
+					require.NotContains(t, err.Error(), path, "the file name belongs on read errors only")
+				}
 				return
 			}
 			require.NoError(t, err)
