@@ -1,6 +1,7 @@
 package load
 
 import (
+	"go/types"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -69,6 +70,28 @@ type Service struct{}
 `,
 			iface:   "Service",
 			wantErr: []string{`"Service" is not an interface`},
+		},
+		{
+			name: "alias of an instantiated generic interface",
+			src: `
+package x
+
+type Repo[T any] interface{ Get() T }
+
+type IntRepo = Repo[int]
+`,
+			iface: "IntRepo",
+			want:  map[string]string{"Get": "int"},
+		},
+		{
+			name: "generic interface",
+			src: `
+package x
+
+type Repo[T any] interface{ Get() T }
+`,
+			iface:   "Repo",
+			wantErr: []string{`"Repo" is generic, which is not supported; name an instantiation such as type Int = Repo[int]`},
 		},
 		{
 			name: "method with arguments",
@@ -191,5 +214,39 @@ func TestCheckImplementable(t *testing.T) {
 
 	t.Run("nothing to report", func(t *testing.T) {
 		require.Empty(t, checkImplementable(methods[:1], "example.com/app/z"))
+	})
+}
+
+func TestIsGeneric(t *testing.T) {
+	const src = `
+package x
+
+type Plain interface{ Get() int }
+
+type Repo[T any] interface{ Get() T }
+
+type IntRepo = Repo[int]
+
+type AnyRepo[T any] = Repo[T]
+`
+	pkg := typecheck(t, src)
+	tests := []struct {
+		name string
+		typ  string
+		want bool
+	}{
+		{name: "plain interface", typ: "Plain", want: false},
+		{name: "generic interface", typ: "Repo", want: true},
+		{name: "alias of an instantiation", typ: "IntRepo", want: false},
+		{name: "generic alias", typ: "AnyRepo", want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, isGeneric(pkg.Scope().Lookup(tc.typ).Type()))
+		})
+	}
+
+	t.Run("not a named type", func(t *testing.T) {
+		require.False(t, isGeneric(types.Typ[types.Int]))
 	})
 }

@@ -16,6 +16,9 @@ func interfaceMethods(pkg *types.Package, name string) ([]Method, error) {
 	if !ok {
 		return nil, fmt.Errorf("%q is not an interface", name)
 	}
+	if isGeneric(obj.Type()) {
+		return nil, fmt.Errorf("%q is generic, which is not supported; name an instantiation such as type Int = %s[int]", name, name)
+	}
 
 	var methods []Method
 	var errs []error
@@ -47,4 +50,15 @@ func checkImplementable(methods []Method, pkgPath string) []error {
 		}
 	}
 	return errs
+}
+
+// isGeneric reports whether t still has type parameters; an alias of an instantiation does not.
+func isGeneric(t types.Type) bool {
+	switch t := t.(type) {
+	case *types.Named:
+		return t.TypeParams().Len() > 0
+	case *types.Alias:
+		return t.TypeParams().Len() > 0
+	}
+	return false
 }
