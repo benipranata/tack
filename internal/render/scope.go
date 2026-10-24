@@ -2,6 +2,9 @@ package render
 
 import (
 	"go/types"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/benipranata/tack/internal/config"
 	"github.com/benipranata/tack/internal/load"
@@ -24,11 +27,23 @@ func newScope(out load.Output) *scope {
 		names.take(out.Interface)
 	}
 
-	base := lowerName(out.Interface)
+	base := lowerName(structBase(out.Name))
 	if base == out.Interface {
 		base += "Impl"
 	}
 	return &scope{out: out, names: names, imports: newImports(names), structName: names.take(base)}
+}
+
+// structBase names the struct after the constructor, so outputs of one interface in one package never share it:
+// NewService gives Service, and a name without a New prefix is used as it is.
+func structBase(name string) string {
+	for _, p := range []string{"New", "new"} {
+		rest, ok := strings.CutPrefix(name, p)
+		if r, _ := utf8.DecodeRuneInString(rest); ok && unicode.IsUpper(r) {
+			return rest
+		}
+	}
+	return name
 }
 
 // pkg returns the name to refer to a package by, or "" for the output package itself.

@@ -105,6 +105,42 @@ func ProvideClose(ctx context.Context) (func(), func(), error) { return nil, nil
 `,
 			},
 		},
+		{
+			name: "two outputs of one interface in one package",
+			config: `
+prefix: New
+test: true
+providers:
+  - internal/providers
+targets:
+  - package: internal/app
+    interface: Service
+    output:
+      - name: NewProd
+        filename: prod_gen.go
+      - name: NewStaging
+        filename: staging_gen.go
+`,
+			files: map[string]string{
+				"internal/app/service.go": `package app
+
+import "log/slog"
+
+type Service interface {
+	Logger() *slog.Logger
+}
+`,
+				"internal/providers/providers.go": `package providers
+
+import (
+	"context"
+	"log/slog"
+)
+
+func ProvideLogger(ctx context.Context) (*slog.Logger, func(), error) { return nil, nil, nil }
+`,
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

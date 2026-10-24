@@ -17,15 +17,15 @@
       "Gap": false
     },
     {
-      "Alias": "state2",
+      "Alias": "",
       "Path": "example.com/app/internal/state",
       "Gap": true
     }
   ],
   "Func": "NewProdStateTest",
   "FieldsType": "NewProdStateTestFields",
-  "Iface": "state2.State",
-  "Struct": "state",
+  "Iface": "state.State",
+  "Struct": "prodState",
   "Fields": [
     {
       "Name": "DB",

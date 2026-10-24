@@ -32,14 +32,14 @@
       "Gap": false
     },
     {
-      "Alias": "state2",
+      "Alias": "",
       "Path": "example.com/app/internal/state",
       "Gap": false
     }
   ],
   "Func": "NewProdState",
-  "Iface": "state2.State",
-  "Struct": "state",
+  "Iface": "state.State",
+  "Struct": "prodState",
   "Steps": [
     {
       "Var": "db",
