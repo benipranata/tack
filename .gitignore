@@ -1,0 +1,5 @@
+# Binary from `go build ./cmd/tack` in the repository root
+/tack
+
+# Coverage profiles
+*.out
