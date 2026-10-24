@@ -611,11 +611,27 @@ func TestCheckDuplicates(t *testing.T) {
 			wantErr: []string{`targets[0].output[1].name: "NewTest" already declared by targets[0].output[0]`},
 		},
 		{
-			name: "nothing is reserved when test is off",
+			name: "test double names are free when test is off",
 			in: []Target{{Outputs: []Output{
 				{Name: "New", Package: "a", Filename: "x_gen.go", Test: ptr(false)},
-				{Name: "NewTest", Package: "a", Filename: "x_test_gen.go", Test: ptr(false)},
+				{Name: "NewTest", Package: "a", Filename: "y_gen.go", Test: ptr(false)},
 			}}},
+		},
+		{
+			name: "test double file is reserved when test is off, because tack removes it",
+			in: []Target{{Outputs: []Output{
+				{Name: "New", Package: "a", Filename: "x_gen.go", Test: ptr(false)},
+				{Name: "NewY", Package: "a", Filename: "x_test_gen.go", Test: ptr(false)},
+			}}},
+			wantErr: []string{`targets[0].output[1].filename: "x_test_gen.go" already written by targets[0].output[0]`},
+		},
+		{
+			name: "filenames that share a test double file collide even with test off",
+			in: []Target{{Outputs: []Output{
+				{Name: "NewX", Package: "a", Filename: "x.go", Test: ptr(false)},
+				{Name: "NewY", Package: "a", Filename: "x_gen.go", Test: ptr(false)},
+			}}},
+			wantErr: []string{`targets[0].output[1].filename: "x_test_gen.go" already written by targets[0].output[0]`},
 		},
 	}
 

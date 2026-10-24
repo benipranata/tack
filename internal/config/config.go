@@ -159,10 +159,10 @@ func checkDuplicates(targets []Target) error {
 		for j, o := range t.Outputs {
 			at := fmt.Sprintf("targets[%d].output[%d]", i, j)
 
-			names, filenames := []string{o.Name}, []string{o.Filename}
+			// The double file is claimed even with test off: tack removes it then, which must not hit another output's file.
+			names, filenames := []string{o.Name}, []string{o.Filename, DoubleFilename(o.Filename)}
 			if *o.Test {
 				names = append(names, DoubleName(o.Name), DoubleFields(o.Name))
-				filenames = append(filenames, DoubleFilename(o.Filename))
 			}
 
 			for _, name := range names {
