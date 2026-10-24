@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/benipranata/goldie/pkg/goldie"
@@ -14,6 +15,27 @@ import (
 )
 
 const module = "example.com/app"
+
+// testdata is absolute so that a test which changes the working directory still finds it.
+var testdata = func() string {
+	dir, err := filepath.Abs("testdata")
+	if err != nil {
+		panic(err)
+	}
+	return dir
+}()
+
+// goldenEqual compares got with the golden file of the running subtest. Each top-level test keeps its files in its
+// own folder, because goldie's -clean removes every golden file of its fixture folder: with one shared folder,
+// the go:generate directive of a single test would delete the files of all the others.
+func goldenEqual(t *testing.T, got []byte) {
+	t.Helper()
+	top, name, found := strings.Cut(t.Name(), "/")
+	if !found {
+		name = top
+	}
+	goldie.New(t, goldie.WithFixtureDir(filepath.Join(testdata, top))).Equal(name, got)
+}
 
 const serviceSource = `package app
 
@@ -107,10 +129,6 @@ func TestRun(t *testing.T) {
 			},
 		},
 	}
-	// A case may change the working directory, which would move a relative testdata.
-	fixtures, err := filepath.Abs("testdata")
-	require.NoError(t, err)
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -118,7 +136,7 @@ func TestRun(t *testing.T) {
 
 			require.NoError(t, tc.run(t, root))
 
-			goldie.New(t, goldie.WithFixtureDir(fixtures)).Equal(t.Name(), dumpGenerated(t, root))
+			goldenEqual(t, dumpGenerated(t, root))
 		})
 	}
 }

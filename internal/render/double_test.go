@@ -5,7 +5,6 @@ import (
 	"go/types"
 	"testing"
 
-	"github.com/benipranata/goldie/pkg/goldie"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +15,7 @@ func TestNewDouble(t *testing.T) {
 			got, err := json.MarshalIndent(newDouble(tc.out), "", "  ")
 			require.NoError(t, err)
 
-			goldie.New(t).Equal(t.Name(), got)
+			goldenEqual(t, got)
 		})
 	}
 }

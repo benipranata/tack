@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/benipranata/goldie/pkg/goldie"
 	"github.com/stretchr/testify/require"
 
 	"github.com/benipranata/tack/internal/load"
@@ -26,7 +25,7 @@ func TestRender(t *testing.T) {
 				}
 				fmt.Fprintf(&buf, "=== %s\n%s", f.Path, f.Content)
 			}
-			goldie.New(t).Equal(t.Name(), buf.Bytes())
+			goldenEqual(t, buf.Bytes())
 		})
 	}
 }
