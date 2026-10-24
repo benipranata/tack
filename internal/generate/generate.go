@@ -2,6 +2,8 @@
 package generate
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/benipranata/tack/internal/config"
@@ -28,6 +30,9 @@ func Run(configFile string) error {
 		return err
 	}
 	root := filepath.Dir(configFile)
+	if _, err := os.Stat(filepath.Join(root, "go.mod")); err != nil {
+		return fmt.Errorf("the config must be in the module root, next to go.mod: %w", err)
+	}
 	outs, err := load.Load(root, cfg)
 	if err != nil {
 		return err

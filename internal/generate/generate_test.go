@@ -125,8 +125,10 @@ func TestRun(t *testing.T) {
 
 func TestRun_errors(t *testing.T) {
 	tests := []struct {
-		name    string
-		files   map[string]string
+		name  string
+		files map[string]string
+		// dir is the working directory, relative to the module; it defaults to the module root.
+		dir     string
 		config  string
 		wantErr string
 	}{
@@ -145,6 +147,18 @@ func TestRun_errors(t *testing.T) {
 			name:    "invalid config",
 			files:   moduleFiles("unknown: true\n"),
 			wantErr: "field unknown not found",
+		},
+		{
+			name: "config below the module root is discovered",
+			files: map[string]string{"go.mod": "module " + module + "\n", "sub/tack.yaml": quickstartConfig},
+			dir:     "sub",
+			wantErr: "the config must be in the module root, next to go.mod",
+		},
+		{
+			name: "explicit config below the module root",
+			files: map[string]string{"go.mod": "module " + module + "\n", "sub/tack.yaml": quickstartConfig},
+			config:  "sub/tack.yaml",
+			wantErr: "the config must be in the module root, next to go.mod",
 		},
 		{
 			name: "unbound method",
@@ -169,7 +183,7 @@ func TestRun_errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
 			writeFiles(t, root, tc.files)
-			t.Chdir(root)
+			t.Chdir(filepath.Join(root, tc.dir))
 			if tc.config != "" {
 				tc.config = filepath.Join(root, tc.config)
 			}
