@@ -70,7 +70,7 @@ func execute(name string, data any) ([]byte, error) {
 	}
 	src, err := format.Source(buf.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("format generated code: %w\n%s", err, buf.Bytes())
+		return nil, fmt.Errorf("format generated code: %w", err)
 	}
 	return src, nil
 }

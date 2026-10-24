@@ -47,6 +47,7 @@ func TestExecute(t *testing.T) {
 			_, err := execute(tc.template, tc.data)
 
 			require.ErrorContains(t, err, tc.wantErr)
+			require.NotContains(t, err.Error(), Header, "the error must not dump the generated source")
 		})
 	}
 }
