@@ -203,6 +203,19 @@ If nothing matches, or two providers in the same layer return the same type, tac
 which method and which type. To resolve an ambiguity, move one provider to a different layer or give
 the output its own `provider` package.
 
+An output's `provider` also works on its own, to override a few dependencies and keep the rest shared:
+
+```yaml
+prefix: New
+providers:
+  - internal/providers
+targets:
+  - package: internal/cache
+    interface: Cache
+    output:
+      - provider: internal/providers/redis
+```
+
 A function counts as a provider only if it is not generic and has exactly this shape:
 `func(context.Context) (T, func(), error)`.
 
@@ -233,20 +246,7 @@ targets:
 
 `NewProdState` takes what it needs from `internal/providers/prod` first and falls back to the shared
 providers for everything else. `NewStagingState` does the same with `internal/providers/staging`.
-The same works for a single output: add `provider` to override a few dependencies and keep the rest shared.
-
-```yaml
-prefix: New
-providers:
-  - internal/providers
-targets:
-  - package: internal/cache
-    interface: Cache
-    output:
-      - provider: internal/providers/redis
-```
-
-Two outputs in the same package need different names and different filenames.
+Two outputs in the same package need different names and different filenames. The [config reference](#config-reference) has the full rules.
 
 ## Testing
 
