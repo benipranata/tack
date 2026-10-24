@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -353,7 +353,7 @@ func TestLoadPackages(t *testing.T) {
 			for k := range got {
 				keys = append(keys, k)
 			}
-			sort.Strings(keys)
+			slices.Sort(keys)
 			require.Equal(t, tc.want, keys)
 		})
 	}

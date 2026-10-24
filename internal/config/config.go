@@ -34,6 +34,7 @@ func Parse(data []byte) (*Config, error) {
 	return &cfg, nil
 }
 
+// Load reads and parses the config at file; parse errors are prefixed with the file name.
 func Load(file string) (*Config, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
