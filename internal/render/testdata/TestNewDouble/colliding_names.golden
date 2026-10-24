@@ -1,0 +1,51 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "net/http",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    }
+  ],
+  "Func": "NewServiceTest",
+  "FieldsType": "NewServiceTestFields",
+  "Iface": "Service",
+  "Struct": "service",
+  "Fields": [
+    {
+      "Name": "HTTPClient",
+      "Field": "httpClient",
+      "Type": "*http.Client",
+      "Nillable": true
+    },
+    {
+      "Name": "Len",
+      "Field": "len",
+      "Type": "int",
+      "Nillable": false
+    },
+    {
+      "Name": "Type",
+      "Field": "type2",
+      "Type": "string",
+      "Nillable": false
+    },
+    {
+      "Name": "Err",
+      "Field": "err",
+      "Type": "error",
+      "Nillable": true
+    },
+    {
+      "Name": "Cleanup",
+      "Field": "cleanup",
+      "Type": "bool",
+      "Nillable": false
+    }
+  ]
+}

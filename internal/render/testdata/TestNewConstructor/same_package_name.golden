@@ -1,0 +1,56 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "fmt",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/a/store",
+      "Gap": true
+    },
+    {
+      "Alias": "store2",
+      "Path": "example.com/app/internal/b/store",
+      "Gap": false
+    }
+  ],
+  "Func": "NewService",
+  "Iface": "Service",
+  "Struct": "service",
+  "Steps": [
+    {
+      "Var": "a",
+      "Cleanup": "aCleanup",
+      "Call": "store.Provide",
+      "Label": "store.Provide"
+    },
+    {
+      "Var": "b",
+      "Cleanup": "bCleanup",
+      "Call": "store2.Provide",
+      "Label": "store2.Provide"
+    }
+  ],
+  "Fields": [
+    {
+      "Name": "a",
+      "Method": "A",
+      "Var": "a",
+      "Type": "*store.Store"
+    },
+    {
+      "Name": "b",
+      "Method": "B",
+      "Var": "b",
+      "Type": "*store2.Store"
+    }
+  ]
+}

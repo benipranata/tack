@@ -157,7 +157,10 @@ func NewService(ctx context.Context) (Service, func(), error) {
 		cleanups = append(cleanups, loggerCleanup)
 	}
 
-	return &service{db: db, logger: logger}, cleanup, nil
+	return &service{
+		db:     db,
+		logger: logger,
+	}, cleanup, nil
 }
 
 type service struct {
@@ -376,6 +379,7 @@ go test -cover ./...
 | `internal/discover` | Finds `tack.yaml`. |
 | `internal/config` | Parses and validates `tack.yaml`. |
 | `internal/load` | Type-checks the packages and binds each interface method to a provider. |
+| `internal/render` | Renders the bound outputs to Go source from embedded templates. |
 
 ## License
 

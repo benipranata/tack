@@ -1,0 +1,15 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    }
+  ],
+  "Func": "NewEmpty",
+  "Iface": "Empty",
+  "Struct": "empty",
+  "Steps": null,
+  "Fields": null
+}

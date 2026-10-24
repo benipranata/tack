@@ -1,0 +1,38 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "database/sql",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "log/slog",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    }
+  ],
+  "Func": "NewServiceTest",
+  "FieldsType": "NewServiceTestFields",
+  "Iface": "Service",
+  "Struct": "service",
+  "Fields": [
+    {
+      "Name": "DB",
+      "Field": "db",
+      "Type": "*sql.DB",
+      "Nillable": true
+    },
+    {
+      "Name": "Logger",
+      "Field": "logger",
+      "Type": "*slog.Logger",
+      "Nillable": true
+    }
+  ]
+}

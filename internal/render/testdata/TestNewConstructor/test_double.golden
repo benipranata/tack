@@ -1,0 +1,97 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "database/sql",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "fmt",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "log/slog",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/providers",
+      "Gap": true
+    }
+  ],
+  "Func": "NewService",
+  "Iface": "Service",
+  "Struct": "service",
+  "Steps": [
+    {
+      "Var": "db",
+      "Cleanup": "dbCleanup",
+      "Call": "providers.ProvideDB",
+      "Label": "ProvideDB"
+    },
+    {
+      "Var": "logger",
+      "Cleanup": "loggerCleanup",
+      "Call": "providers.ProvideLogger",
+      "Label": "ProvideLogger"
+    },
+    {
+      "Var": "hook",
+      "Cleanup": "hookCleanup",
+      "Call": "providers.ProvideHook",
+      "Label": "ProvideHook"
+    },
+    {
+      "Var": "retries",
+      "Cleanup": "retriesCleanup",
+      "Call": "providers.ProvideRetries",
+      "Label": "ProvideRetries"
+    },
+    {
+      "Var": "config",
+      "Cleanup": "configCleanup",
+      "Call": "provideConfig",
+      "Label": "provideConfig"
+    }
+  ],
+  "Fields": [
+    {
+      "Name": "db",
+      "Method": "DB",
+      "Var": "db",
+      "Type": "*sql.DB"
+    },
+    {
+      "Name": "logger",
+      "Method": "Logger",
+      "Var": "logger",
+      "Type": "*slog.Logger"
+    },
+    {
+      "Name": "hook",
+      "Method": "Hook",
+      "Var": "hook",
+      "Type": "func()"
+    },
+    {
+      "Name": "retries",
+      "Method": "Retries",
+      "Var": "retries",
+      "Type": "int"
+    },
+    {
+      "Name": "config",
+      "Method": "Config",
+      "Var": "config",
+      "Type": "Config"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+package render
+
+import (
+	"bytes"
+	"fmt"
+	"testing"
+
+	"github.com/benipranata/goldie/pkg/goldie"
+	"github.com/stretchr/testify/require"
+
+	"github.com/benipranata/tack/internal/load"
+)
+
+//go:generate go test -v -update -clean -run '^TestRender$'
+func TestRender(t *testing.T) {
+	for _, tc := range outputCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			files, err := Render(tc.out)
+			require.NoError(t, err)
+
+			var buf bytes.Buffer
+			for _, f := range files {
+				if f.Remove {
+					fmt.Fprintf(&buf, "=== %s (removed)\n", f.Path)
+					continue
+				}
+				fmt.Fprintf(&buf, "=== %s\n%s", f.Path, f.Content)
+			}
+			goldie.New(t).Equal(t.Name(), buf.Bytes())
+		})
+	}
+}
+
+func TestExecute(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		data     any
+		wantErr  string
+	}{
+		{name: "missing template", template: "nope.tmpl", wantErr: `no template "nope.tmpl"`},
+		{name: "bad data", template: "constructor.go.tmpl", data: 1, wantErr: "can't evaluate field Package"},
+		{name: "invalid go", template: "constructor.go.tmpl", data: constructor{}, wantErr: "format generated code"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := execute(tc.template, tc.data)
+
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestRender_error(t *testing.T) {
+	// A name that is not a Go identifier makes the generated code unparsable.
+	_, err := Render(load.Output{Name: "not valid", Filename: "x_gen.go", Package: pkgAt("x"), Target: pkgAt("x")})
+
+	require.ErrorContains(t, err, "x/x_gen.go: format generated code")
+}

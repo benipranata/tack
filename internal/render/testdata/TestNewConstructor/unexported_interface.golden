@@ -1,0 +1,44 @@
+{
+  "Package": "cache",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "fmt",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "log/slog",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/providers",
+      "Gap": true
+    }
+  ],
+  "Func": "newRedis",
+  "Iface": "redis",
+  "Struct": "redisImpl",
+  "Steps": [
+    {
+      "Var": "logger",
+      "Cleanup": "loggerCleanup",
+      "Call": "providers.ProvideLogger",
+      "Label": "ProvideLogger"
+    }
+  ],
+  "Fields": [
+    {
+      "Name": "logger",
+      "Method": "Logger",
+      "Var": "logger",
+      "Type": "*slog.Logger"
+    }
+  ]
+}

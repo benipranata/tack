@@ -1,0 +1,15 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    }
+  ],
+  "Func": "NewEmptyTest",
+  "FieldsType": "NewEmptyTestFields",
+  "Iface": "Empty",
+  "Struct": "empty",
+  "Fields": null
+}

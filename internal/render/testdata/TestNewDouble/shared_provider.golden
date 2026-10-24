@@ -1,0 +1,33 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "database/sql",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    }
+  ],
+  "Func": "NewServiceTest",
+  "FieldsType": "NewServiceTestFields",
+  "Iface": "Service",
+  "Struct": "service",
+  "Fields": [
+    {
+      "Name": "Primary",
+      "Field": "primary",
+      "Type": "*sql.DB",
+      "Nillable": true
+    },
+    {
+      "Name": "Replica",
+      "Field": "replica",
+      "Type": "*sql.DB",
+      "Nillable": true
+    }
+  ]
+}

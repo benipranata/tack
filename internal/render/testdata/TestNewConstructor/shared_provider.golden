@@ -1,0 +1,50 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "database/sql",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "fmt",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/providers",
+      "Gap": true
+    }
+  ],
+  "Func": "NewService",
+  "Iface": "Service",
+  "Struct": "service",
+  "Steps": [
+    {
+      "Var": "primary",
+      "Cleanup": "primaryCleanup",
+      "Call": "providers.ProvideDB",
+      "Label": "ProvideDB"
+    }
+  ],
+  "Fields": [
+    {
+      "Name": "primary",
+      "Method": "Primary",
+      "Var": "primary",
+      "Type": "*sql.DB"
+    },
+    {
+      "Name": "replica",
+      "Method": "Replica",
+      "Var": "primary",
+      "Type": "*sql.DB"
+    }
+  ]
+}

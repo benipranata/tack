@@ -1,0 +1,71 @@
+{
+  "Package": "prod",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "database/sql",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "fmt",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "log/slog",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/providers",
+      "Gap": true
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/providers/prod",
+      "Gap": false
+    },
+    {
+      "Alias": "state2",
+      "Path": "example.com/app/internal/state",
+      "Gap": false
+    }
+  ],
+  "Func": "NewProdState",
+  "Iface": "state2.State",
+  "Struct": "state",
+  "Steps": [
+    {
+      "Var": "db",
+      "Cleanup": "dbCleanup",
+      "Call": "prod.ProvideDB",
+      "Label": "ProvideDB"
+    },
+    {
+      "Var": "logger",
+      "Cleanup": "loggerCleanup",
+      "Call": "providers.ProvideLogger",
+      "Label": "ProvideLogger"
+    }
+  ],
+  "Fields": [
+    {
+      "Name": "db",
+      "Method": "DB",
+      "Var": "db",
+      "Type": "*sql.DB"
+    },
+    {
+      "Name": "logger",
+      "Method": "Logger",
+      "Var": "logger",
+      "Type": "*slog.Logger"
+    }
+  ]
+}

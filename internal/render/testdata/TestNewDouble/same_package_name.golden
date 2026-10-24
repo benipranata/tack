@@ -1,0 +1,38 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/a/store",
+      "Gap": true
+    },
+    {
+      "Alias": "store2",
+      "Path": "example.com/app/internal/b/store",
+      "Gap": false
+    }
+  ],
+  "Func": "NewServiceTest",
+  "FieldsType": "NewServiceTestFields",
+  "Iface": "Service",
+  "Struct": "service",
+  "Fields": [
+    {
+      "Name": "A",
+      "Field": "a",
+      "Type": "*store.Store",
+      "Nillable": true
+    },
+    {
+      "Name": "B",
+      "Field": "b",
+      "Type": "*store2.Store",
+      "Nillable": true
+    }
+  ]
+}

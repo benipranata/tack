@@ -1,0 +1,27 @@
+{
+  "Package": "cache",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "log/slog",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    }
+  ],
+  "Func": "newRedisTest",
+  "FieldsType": "newRedisTestFields",
+  "Iface": "redis",
+  "Struct": "redisImpl",
+  "Fields": [
+    {
+      "Name": "Logger",
+      "Field": "logger",
+      "Type": "*slog.Logger",
+      "Nillable": true
+    }
+  ]
+}

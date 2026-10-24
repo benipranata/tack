@@ -1,0 +1,43 @@
+{
+  "Package": "prod",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "database/sql",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "log/slog",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "testing",
+      "Gap": false
+    },
+    {
+      "Alias": "state2",
+      "Path": "example.com/app/internal/state",
+      "Gap": true
+    }
+  ],
+  "Func": "NewProdStateTest",
+  "FieldsType": "NewProdStateTestFields",
+  "Iface": "state2.State",
+  "Struct": "state",
+  "Fields": [
+    {
+      "Name": "DB",
+      "Field": "db",
+      "Type": "*sql.DB",
+      "Nillable": true
+    },
+    {
+      "Name": "Logger",
+      "Field": "logger",
+      "Type": "*slog.Logger",
+      "Nillable": true
+    }
+  ]
+}

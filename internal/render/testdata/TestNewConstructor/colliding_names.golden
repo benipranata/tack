@@ -1,0 +1,92 @@
+{
+  "Package": "app",
+  "Imports": [
+    {
+      "Alias": "",
+      "Path": "context",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "fmt",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "net/http",
+      "Gap": false
+    },
+    {
+      "Alias": "",
+      "Path": "example.com/app/internal/a",
+      "Gap": true
+    }
+  ],
+  "Func": "NewService",
+  "Iface": "Service",
+  "Struct": "service",
+  "Steps": [
+    {
+      "Var": "httpClient",
+      "Cleanup": "httpClientCleanup",
+      "Call": "a.ProvideClient",
+      "Label": "ProvideClient"
+    },
+    {
+      "Var": "len2",
+      "Cleanup": "len2Cleanup",
+      "Call": "a.ProvideLen",
+      "Label": "ProvideLen"
+    },
+    {
+      "Var": "type2",
+      "Cleanup": "type2Cleanup",
+      "Call": "a.ProvideType",
+      "Label": "ProvideType"
+    },
+    {
+      "Var": "err2",
+      "Cleanup": "err2Cleanup",
+      "Call": "a.ProvideErr",
+      "Label": "ProvideErr"
+    },
+    {
+      "Var": "cleanup2",
+      "Cleanup": "cleanup2Cleanup",
+      "Call": "a.ProvideCleanup",
+      "Label": "ProvideCleanup"
+    }
+  ],
+  "Fields": [
+    {
+      "Name": "httpClient",
+      "Method": "HTTPClient",
+      "Var": "httpClient",
+      "Type": "*http.Client"
+    },
+    {
+      "Name": "len",
+      "Method": "Len",
+      "Var": "len2",
+      "Type": "int"
+    },
+    {
+      "Name": "type2",
+      "Method": "Type",
+      "Var": "type2",
+      "Type": "string"
+    },
+    {
+      "Name": "err",
+      "Method": "Err",
+      "Var": "err2",
+      "Type": "error"
+    },
+    {
+      "Name": "cleanup",
+      "Method": "Cleanup",
+      "Var": "cleanup2",
+      "Type": "bool"
+    }
+  ]
+}
