@@ -34,6 +34,23 @@ targets:
 			},
 		},
 		{
+			name: "no prefix keeps the interface name",
+			in: `
+targets:
+  - package: cache
+    interface: Redis
+    output:
+      - package: cache/prod
+`,
+			want: &Config{
+				Targets: []Target{{
+					Package:   "cache",
+					Interface: "Redis",
+					Outputs:   []Output{{Name: "Redis", Package: "cache/prod", Filename: "redis_gen.go", Test: ptr(false)}},
+				}},
+			},
+		},
+		{
 			name: "test setting is global with an output override",
 			in: `
 test: true
